@@ -115,4 +115,10 @@ public interface SysDeptMapper
      * @return 结果
      */
     public int deleteDeptById(Long deptId);
+
+
+    /**
+     * 注册专用：精确匹配公司名 + 已审核
+     */
+    List<SysDept> selectByNameExact(@Param("companyName") String companyName);
 }

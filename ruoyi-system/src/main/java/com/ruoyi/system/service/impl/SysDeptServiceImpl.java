@@ -207,16 +207,35 @@ public class SysDeptServiceImpl implements ISysDeptService
      * @param dept 部门信息
      * @return 结果
      */
+//    @Override
+//    public int insertDept(SysDept dept)
+//    {
+//        SysDept info = deptMapper.selectDeptById(dept.getParentId());
+//        // 如果父节点不为正常状态,则不允许新增子节点
+//        if (!UserConstants.DEPT_NORMAL.equals(info.getStatus()))
+//        {
+//            throw new ServiceException("部门停用，不允许新增");
+//        }
+//        dept.setAncestors(info.getAncestors() + "," + dept.getParentId());
+//        return deptMapper.insertDept(dept);
+//    }
     @Override
-    public int insertDept(SysDept dept)
-    {
-        SysDept info = deptMapper.selectDeptById(dept.getParentId());
-        // 如果父节点不为正常状态,则不允许新增子节点
-        if (!UserConstants.DEPT_NORMAL.equals(info.getStatus()))
-        {
+    public int insertDept(SysDept dept) {
+        // 1. 顶级部门特判
+        if (dept.getParentId() == 0L) {
+            dept.setAncestors("0");
+            return deptMapper.insertDept(dept);
+        }
+
+        // 2. 非顶级部门必须存在父节点
+        SysDept parent = deptMapper.selectDeptById(dept.getParentId());
+        if (parent == null) {
+            throw new ServiceException("父部门不存在");
+        }
+        if (!UserConstants.DEPT_NORMAL.equals(parent.getStatus())) {
             throw new ServiceException("部门停用，不允许新增");
         }
-        dept.setAncestors(info.getAncestors() + "," + dept.getParentId());
+        dept.setAncestors(parent.getAncestors() + "," + parent.getDeptId());
         return deptMapper.insertDept(dept);
     }
 

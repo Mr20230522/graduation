@@ -20,6 +20,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="createTime" column="create_time" />
 		<result property="updateBy"   column="update_by"   />
 		<result property="updateTime" column="update_time" />
+		<result property="address" column="address" />
+		<result property="longitude" column="longitude" />
+		<result property="latitude" column="latitude" />
+		<result property="license" column="license" />
 	</resultMap>
 	
 	<sql id="selectDeptVo">
@@ -86,33 +90,43 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	    <include refid="selectDeptVo"/>
 		where dept_name=#{deptName} and parent_id = #{parentId} and del_flag = '0' limit 1
 	</select>
-    
-    <insert id="insertDept" parameterType="SysDept">
- 		insert into sys_dept(
- 			<if test="deptId != null and deptId != 0">dept_id,</if>
- 			<if test="parentId != null and parentId != 0">parent_id,</if>
- 			<if test="deptName != null and deptName != ''">dept_name,</if>
- 			<if test="ancestors != null and ancestors != ''">ancestors,</if>
- 			<if test="orderNum != null">order_num,</if>
- 			<if test="leader != null and leader != ''">leader,</if>
- 			<if test="phone != null and phone != ''">phone,</if>
- 			<if test="email != null and email != ''">email,</if>
- 			<if test="status != null">status,</if>
- 			<if test="createBy != null and createBy != ''">create_by,</if>
- 			create_time
- 		)values(
- 			<if test="deptId != null and deptId != 0">#{deptId},</if>
- 			<if test="parentId != null and parentId != 0">#{parentId},</if>
- 			<if test="deptName != null and deptName != ''">#{deptName},</if>
- 			<if test="ancestors != null and ancestors != ''">#{ancestors},</if>
- 			<if test="orderNum != null">#{orderNum},</if>
- 			<if test="leader != null and leader != ''">#{leader},</if>
- 			<if test="phone != null and phone != ''">#{phone},</if>
- 			<if test="email != null and email != ''">#{email},</if>
- 			<if test="status != null">#{status},</if>
- 			<if test="createBy != null and createBy != ''">#{createBy},</if>
- 			sysdate()
- 		)
+
+	<insert id="insertDept" parameterType="SysDept" useGeneratedKeys="true" keyProperty="deptId">
+		insert into sys_dept(
+		<if test="deptId != null and deptId != 0">dept_id,</if>
+		<if test="parentId != null and parentId != 0">parent_id,</if>
+		<if test="deptName != null and deptName != ''">dept_name,</if>
+		<if test="ancestors != null and ancestors != ''">ancestors,</if>
+		<if test="orderNum != null">order_num,</if>
+		<if test="leader != null and leader != ''">leader,</if>
+		<if test="phone != null and phone != ''">phone,</if>
+		<if test="email != null and email != ''">email,</if>
+		<!-- 下面 4 行就是缺的 -->
+		<if test="address != null and address != ''">address,</if>
+		<if test="longitude != null">longitude,</if>
+		<if test="latitude != null">latitude,</if>
+		<if test="license != null and license != ''">license,</if>
+		<if test="status != null">status,</if>
+		<if test="createBy != null and createBy != ''">create_by,</if>
+		create_time
+		)values(
+		<if test="deptId != null and deptId != 0">#{deptId},</if>
+		<if test="parentId != null and parentId != 0">#{parentId},</if>
+		<if test="deptName != null and deptName != ''">#{deptName},</if>
+		<if test="ancestors != null and ancestors != ''">#{ancestors},</if>
+		<if test="orderNum != null">#{orderNum},</if>
+		<if test="leader != null and leader != ''">#{leader},</if>
+		<if test="phone != null and phone != ''">#{phone},</if>
+		<if test="email != null and email != ''">#{email},</if>
+		<!-- 对应值也要补 -->
+		<if test="address != null and address != ''">#{address},</if>
+		<if test="longitude != null">#{longitude},</if>
+		<if test="latitude != null">#{latitude},</if>
+		<if test="license != null and license != ''">#{license},</if>
+		<if test="status != null">#{status},</if>
+		<if test="createBy != null and createBy != ''">#{createBy},</if>
+		sysdate()
+		)
 	</insert>
 	
 	<update id="updateDept" parameterType="SysDept">
@@ -155,5 +169,25 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<delete id="deleteDeptById" parameterType="Long">
 		update sys_dept set del_flag = '2' where dept_id = #{deptId}
 	</delete>
+
+
+	<select id="selectByNameExact" resultMap="SysDeptResult">
+		select d.dept_id,
+			   d.parent_id,
+			   d.ancestors,
+			   d.dept_name,
+			   d.order_num,
+			   d.leader,
+			   d.phone,
+			   d.email,
+			   d.status,
+			   d.del_flag,
+			   d.create_by,
+			   d.create_time
+		from sys_dept d
+		where d.dept_name = #{companyName}
+		  and d.status = '0'
+		  and d.del_flag = '0'
+	</select>
 
 </mapper> 
