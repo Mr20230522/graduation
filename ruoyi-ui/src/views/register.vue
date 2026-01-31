@@ -42,6 +42,15 @@
         <el-form-item prop="legalPerson">
           <el-input v-model="registerForm.legalPerson" placeholder="法人姓名"/>
         </el-form-item>
+        <el-form-item prop="carSpaceCount">
+          <el-input-number
+            v-model="registerForm.carSpaceCount"
+            :min="1"
+            :max="20"
+            placeholder="车位数"
+            style="width: 100%"
+          />
+        </el-form-item>
         <!-- 放在手机号码下方即可 -->
         <el-form-item prop="email">
           <el-input v-model="registerForm.email" placeholder="邮箱"/>
@@ -53,10 +62,18 @@
           <el-input v-model="registerForm.address" placeholder="详细地址"/>
         </el-form-item>
         <el-form-item prop="longitude">
-          <el-input v-model.number="registerForm.longitude" placeholder="经度"/>
+          <el-input
+            v-model="registerForm.longitude"
+            placeholder="经度"
+            @input="handleNumberInput('longitude')"
+          />
         </el-form-item>
         <el-form-item prop="latitude">
-          <el-input v-model.number="registerForm.latitude" placeholder="纬度"/>
+          <el-input
+            v-model="registerForm.latitude"
+            placeholder="纬度"
+            @input="handleNumberInput('latitude')"
+          />
         </el-form-item>
       </template>
 
@@ -94,6 +111,16 @@ export default {
       if (this.registerForm.password !== value) callback(new Error('两次密码不一致'))
       else callback()
     }
+    // 数字校验规则
+    const validateNumber = (rule, value, callback) => {
+      if (value === '' || value === null || value === undefined) {
+        callback(new Error('请输入数值'))
+      } else if (isNaN(value)) {
+        callback(new Error('请输入有效的数字'))
+      } else {
+        callback()
+      }
+    }
     return {
       title: process.env.VUE_APP_TITLE,
       footerContent: '版权所有',
@@ -112,10 +139,11 @@ export default {
         legalPerson: '',
         license: '',
         address: '',
-        longitude: null,
-        latitude: null,
+        longitude: '',
+        latitude: '',
         email:'',
-        status: '0'
+        status: '0',
+        carSpaceCount: 1
       },
       registerRules: {
         username: [{ required: true, trigger: 'blur', message: '请输入账号' }, { min: 2, max: 20, message: '长度 2-20', trigger: 'blur' }],
@@ -127,8 +155,15 @@ export default {
         legalPerson: [{ required: true, message: '请输入法人姓名', trigger: 'blur' }],
         license: [{ required: true, message: '请输入营业执照编号', trigger: 'blur' }],
         address: [{ required: true, message: '请输入详细地址', trigger: 'blur' }],
-        longitude: [{ required: true, message: '请输入经度', trigger: 'blur' }],
-        latitude: [{ required: true, message: '请输入纬度', trigger: 'blur' }],
+        longitude: [
+          { required: true, message: '请输入经度', trigger: 'blur' },
+          { validator: validateNumber, trigger: 'blur' }
+        ],
+        latitude: [
+          { required: true, message: '请输入纬度', trigger: 'blur' },
+          { validator: validateNumber, trigger: 'blur' }
+        ],
+        carSpaceCount: [{ required: true, message: '请输入车位数', trigger: 'blur' }],
         code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
       }
     }
@@ -146,12 +181,44 @@ export default {
         }
       })
     },
+    // 处理数字输入，过滤非数字字符
+    handleNumberInput(field) {
+      let value = this.registerForm[field]
+      if (value === '' || value === null || value === undefined) return
+
+      // 保留数字、小数点和负号
+      let cleaned = String(value).replace(/[^0-9.-]/g, '')
+
+      // 确保只有一个小数点
+      const parts = cleaned.split('.')
+      if (parts.length > 2) {
+        cleaned = parts[0] + '.' + parts.slice(1).join('')
+      }
+
+      // 确保负号只在开头
+      if (cleaned.indexOf('-') > 0) {
+        cleaned = cleaned.replace(/-/g, '')
+      } else if (cleaned.indexOf('-') === 0) {
+        cleaned = '-' + cleaned.replace(/-/g, '')
+      }
+
+      this.registerForm[field] = cleaned
+    },
     handleRegister() {
       this.$refs.registerForm.validate(valid => {
         if (!valid) return
+
+        // 提交前转换数字类型
+        const submitData = { ...this.registerForm }
+        if (submitData.longitude) {
+          submitData.longitude = parseFloat(submitData.longitude)
+        }
+        if (submitData.latitude) {
+          submitData.latitude = parseFloat(submitData.latitude)
+        }
+
         this.loading = true
-        const api = register
-        api(this.registerForm).then(() => {
+        register(submitData).then(() => {
           this.$alert('<font color=red>提交成功！</font>', '提示', { dangerouslyUseHTMLString: true, type: 'success' })
             .then(() => this.$router.push('/login'))
         }).catch(res => {

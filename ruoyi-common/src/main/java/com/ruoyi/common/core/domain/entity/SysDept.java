@@ -105,6 +105,16 @@ public class SysDept extends BaseEntity {
     @Size(max = 50, message = "营业执照编号长度不能超过50个字符")
     private String license;
 
+    private Integer carSpaceCount;
+
+    public Integer getCarSpaceCount() {
+        return carSpaceCount;
+    }
+
+    public void setCarSpaceCount(Integer carSpaceCount) {
+        this.carSpaceCount = carSpaceCount;
+    }
+
     public Long getDeptId() {
         return deptId;
     }

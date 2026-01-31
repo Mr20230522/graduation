@@ -1,5 +1,7 @@
 package com.ruoyi.framework.web.service;
 
+import com.ruoyi.booking.domain.DeptCarSpace;
+import com.ruoyi.booking.service.IBookingService;
 import com.ruoyi.system.mapper.SysDeptMapper;
 import nl.basjes.parse.useragent.utils.springframework.util.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +39,7 @@ public class SysRegisterService {
     @Autowired private ISysConfigService configService;
     @Autowired private RedisCache redisCache;
     @Autowired private SysDeptMapper deptMapper;
+    @Autowired private IBookingService bookingService;
 
     /* ========= 统一入口 ========= */
     @Transactional(rollbackFor = Exception.class)
@@ -130,7 +133,30 @@ public class SysRegisterService {
         dept.setCreateTime(DateUtils.getNowDate());
         dept.setLicense(body.getLicense());
         deptService.insertDept(dept);
+
+        // ✅ 新增：自动创建车位
+        Integer carSpaceCount = body.getCarSpaceCount();
+        if (carSpaceCount != null && carSpaceCount > 0) {
+            createCarSpaces(dept.getDeptId(), carSpaceCount, createBy);
+        }
+
         return dept;
+    }
+
+    /**
+     * 批量创建车位 A1, A2, A3...
+     */
+    private void createCarSpaces(Long deptId, int count, String createBy) {
+        for (int i = 1; i <= count; i++) {
+            DeptCarSpace space = new DeptCarSpace();
+            space.setDeptId(deptId);
+            space.setSpaceNo("A" + i);                    // 车位编号：A1, A2...
+            space.setSpaceName("车位" + i);                // 车位名称
+            space.setStatus(0);                            // 0启用
+            space.setCreateBy(createBy);
+            bookingService.insertCarSpace(space);
+        }
+        System.err.println("【注册】已为部门 " + deptId + " 创建 " + count + " 个车位");
     }
 
     private Long findDeptIdByName(String companyName) {

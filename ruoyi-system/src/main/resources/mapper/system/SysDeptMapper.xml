@@ -24,10 +24,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<result property="longitude" column="longitude" />
 		<result property="latitude" column="latitude" />
 		<result property="license" column="license" />
+		<result property="carSpaceCount" column="car_space_count" />
 	</resultMap>
 	
 	<sql id="selectDeptVo">
-        select d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.phone, d.email, d.status, d.del_flag, d.create_by, d.create_time 
+        select d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.phone, d.email, d.status, d.del_flag, d.create_by, d.create_time,d.car_space_count
         from sys_dept d
     </sql>
     
@@ -108,6 +109,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="license != null and license != ''">license,</if>
 		<if test="status != null">status,</if>
 		<if test="createBy != null and createBy != ''">create_by,</if>
+		<if test="carSpaceCount != null and carSpaceCount != ''">car_space_count,</if>
+
 		create_time
 		)values(
 		<if test="deptId != null and deptId != 0">#{deptId},</if>
@@ -125,6 +128,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<if test="license != null and license != ''">#{license},</if>
 		<if test="status != null">#{status},</if>
 		<if test="createBy != null and createBy != ''">#{createBy},</if>
+		<if test="carSpaceCount != null and carSpaceCount != ''">#{carSpaceCount},</if>
 		sysdate()
 		)
 	</insert>

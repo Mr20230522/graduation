@@ -10,9 +10,7 @@
         <result property="spaceNo" column="space_no"/>
         <result property="spaceName" column="space_name"/>
         <result property="status" column="status"/>
-        <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
-        <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
@@ -55,7 +53,7 @@
     <!-- 车位 -->
     <sql id="selectCarSpaceVo">
         select id, dept_id, space_no, space_name, status,
-               create_by, create_time, update_by, update_time
+               create_time, update_time
         from dept_car_space
     </sql>
     <select id="selectCarSpaceList" parameterType="com.ruoyi.booking.domain.DeptCarSpace" resultMap="CarSpaceResult">
@@ -78,7 +76,6 @@
             <if test="spaceNo != null">space_no,</if>
             <if test="spaceName != null">space_name,</if>
             <if test="status != null">status,</if>
-            <if test="createBy != null">create_by,</if>
             create_time
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
@@ -86,7 +83,6 @@
             <if test="spaceNo != null">#{spaceNo},</if>
             <if test="spaceName != null">#{spaceName},</if>
             <if test="status != null">#{status},</if>
-            <if test="createBy != null">#{createBy},</if>
             sysdate()
         </trim>
     </insert>
@@ -97,7 +93,6 @@
             <if test="spaceNo != null">space_no = #{spaceNo},</if>
             <if test="spaceName != null">space_name = #{spaceName},</if>
             <if test="status != null">status = #{status},</if>
-            <if test="updateBy != null">update_by = #{updateBy},</if>
             update_time = sysdate()
         </trim>
         where id = #{id}
