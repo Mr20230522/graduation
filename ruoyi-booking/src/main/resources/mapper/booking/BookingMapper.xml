@@ -4,6 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ruoyi.booking.mapper.BookingMapper">
 
+    <!-- ==================== 结果映射 ==================== -->
     <resultMap type="com.ruoyi.booking.domain.DeptCarSpace" id="CarSpaceResult">
         <id property="id" column="id"/>
         <result property="deptId" column="dept_id"/>
@@ -23,14 +24,13 @@
         <result property="slotMinutes" column="slot_minutes"/>
         <result property="carSpaces" column="car_spaces"/>
         <result property="status" column="status"/>
-        <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
-        <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
     <resultMap type="com.ruoyi.booking.domain.CarBooking" id="BookingResult">
         <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
         <result property="bookingNo" column="booking_no"/>
         <result property="deptId" column="dept_id"/>
         <result property="spaceNo" column="space_no"/>
@@ -50,113 +50,92 @@
         <result property="updateTime" column="update_time"/>
     </resultMap>
 
-    <!-- 车位 -->
+    <!-- ==================== 车位 ==================== -->
     <sql id="selectCarSpaceVo">
-        select id, dept_id, space_no, space_name, status,
-               create_time, update_time
-        from dept_car_space
+        SELECT id, dept_id, space_no, space_name, status, create_time, update_time
+        FROM dept_car_space
     </sql>
+
     <select id="selectCarSpaceList" parameterType="com.ruoyi.booking.domain.DeptCarSpace" resultMap="CarSpaceResult">
         <include refid="selectCarSpaceVo"/>
         <where>
-            <if test="deptId != null">and dept_id = #{deptId}</if>
-            <if test="spaceNo != null and spaceNo != ''">and space_no = #{spaceNo}</if>
-            <if test="spaceName != null and spaceName != ''">and space_name like concat('%', #{spaceName}, '%')</if>
-            <if test="status != null">and status = #{status}</if>
+            <if test="deptId != null">AND dept_id = #{deptId}</if>
+            <if test="spaceNo != null and spaceNo != ''">AND space_no = #{spaceNo}</if>
+            <if test="spaceName != null and spaceName != ''">AND space_name LIKE CONCAT('%', #{spaceName}, '%')</if>
+            <if test="status != null">AND status = #{status}</if>
         </where>
-        order by space_no
+        ORDER BY space_no
     </select>
+
     <select id="selectCarSpaceByDeptId" resultMap="CarSpaceResult">
-        <include refid="selectCarSpaceVo"/> where dept_id = #{deptId} and status = 0 order by space_no
+        <include refid="selectCarSpaceVo"/>
+        WHERE dept_id = #{deptId} AND status = 0
+        ORDER BY space_no
     </select>
+
     <insert id="insertCarSpace" parameterType="com.ruoyi.booking.domain.DeptCarSpace">
-        insert into dept_car_space
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="deptId != null">dept_id,</if>
-            <if test="spaceNo != null">space_no,</if>
-            <if test="spaceName != null">space_name,</if>
-            <if test="status != null">status,</if>
-            create_time
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="deptId != null">#{deptId},</if>
-            <if test="spaceNo != null">#{spaceNo},</if>
-            <if test="spaceName != null">#{spaceName},</if>
-            <if test="status != null">#{status},</if>
-            sysdate()
-        </trim>
+        INSERT INTO dept_car_space
+            (dept_id, space_no, space_name, status, create_time)
+        VALUES
+            (#{deptId}, #{spaceNo}, #{spaceName}, #{status}, NOW())
     </insert>
+
     <update id="updateCarSpace" parameterType="com.ruoyi.booking.domain.DeptCarSpace">
-        update dept_car_space
+        UPDATE dept_car_space
         <trim prefix="SET" suffixOverrides=",">
             <if test="deptId != null">dept_id = #{deptId},</if>
             <if test="spaceNo != null">space_no = #{spaceNo},</if>
             <if test="spaceName != null">space_name = #{spaceName},</if>
             <if test="status != null">status = #{status},</if>
-            update_time = sysdate()
+            update_time = NOW()
         </trim>
-        where id = #{id}
+        WHERE id = #{id}
     </update>
+
     <delete id="deleteCarSpaceByIds">
-        delete from dept_car_space where id in
+        DELETE FROM dept_car_space WHERE id IN
         <foreach collection="array" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
 
-    <!-- 排班 -->
+    <!-- ==================== 排班 ==================== -->
     <sql id="selectScheduleVo">
-        select id, dept_id, work_date, open_time, close_time,
-               slot_minutes, car_spaces, status,
-               create_by, create_time, update_by, update_time
-        from dept_schedule
+        SELECT id, dept_id, work_date, open_time, close_time, slot_minutes, car_spaces, status, create_time, update_time
+        FROM dept_schedule
     </sql>
+
     <select id="selectScheduleList" parameterType="com.ruoyi.booking.domain.DeptSchedule" resultMap="ScheduleResult">
         <include refid="selectScheduleVo"/>
         <where>
-            <if test="deptId != null">and dept_id = #{deptId}</if>
-            <if test="workDate != null">and work_date = #{workDate}</if>
-            <if test="status != null">and status = #{status}</if>
+            <if test="deptId != null">AND dept_id = #{deptId}</if>
+            <if test="workDate != null">AND work_date = #{workDate}</if>
+            <if test="status != null">AND status = #{status}</if>
         </where>
-        order by work_date
+        ORDER BY work_date
     </select>
+
     <select id="selectScheduleByDeptIdAndDateRange" resultMap="ScheduleResult">
         <include refid="selectScheduleVo"/>
-        where dept_id = #{deptId}
-        and work_date between #{startDate} and #{endDate}
-        order by work_date
+        WHERE dept_id = #{deptId}
+        AND work_date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY work_date
     </select>
+
     <select id="selectScheduleByDeptIdAndDate" resultMap="ScheduleResult">
         <include refid="selectScheduleVo"/>
-        where dept_id = #{deptId} and work_date = #{workDate}
+        WHERE dept_id = #{deptId} AND work_date = #{workDate}
     </select>
+
     <insert id="insertSchedule" parameterType="com.ruoyi.booking.domain.DeptSchedule">
-        insert into dept_schedule
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="deptId != null">dept_id,</if>
-            <if test="workDate != null">work_date,</if>
-            <if test="openTime != null">open_time,</if>
-            <if test="closeTime != null">close_time,</if>
-            <if test="slotMinutes != null">slot_minutes,</if>
-            <if test="carSpaces != null">car_spaces,</if>
-            <if test="status != null">status,</if>
-            <if test="createBy != null">create_by,</if>
-            create_time
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="deptId != null">#{deptId},</if>
-            <if test="workDate != null">#{workDate},</if>
-            <if test="openTime != null">#{openTime},</if>
-            <if test="closeTime != null">#{closeTime},</if>
-            <if test="slotMinutes != null">#{slotMinutes},</if>
-            <if test="carSpaces != null">#{carSpaces},</if>
-            <if test="status != null">#{status},</if>
-            <if test="createBy != null">#{createBy},</if>
-            sysdate()
-        </trim>
+        INSERT INTO dept_schedule
+        (dept_id, work_date, open_time, close_time, slot_minutes, car_spaces, status, create_time)
+        VALUES
+            (#{deptId}, #{workDate}, #{openTime}, #{closeTime}, #{slotMinutes}, #{carSpaces}, #{status}, NOW())
     </insert>
+
     <update id="updateSchedule" parameterType="com.ruoyi.booking.domain.DeptSchedule">
-        update dept_schedule
+        UPDATE dept_schedule
         <trim prefix="SET" suffixOverrides=",">
             <if test="deptId != null">dept_id = #{deptId},</if>
             <if test="workDate != null">work_date = #{workDate},</if>
@@ -165,99 +144,143 @@
             <if test="slotMinutes != null">slot_minutes = #{slotMinutes},</if>
             <if test="carSpaces != null">car_spaces = #{carSpaces},</if>
             <if test="status != null">status = #{status},</if>
-            <if test="updateBy != null">update_by = #{updateBy},</if>
-            update_time = sysdate()
+            update_time = NOW()
         </trim>
-        where id = #{id}
+        WHERE id = #{id}
     </update>
+
     <delete id="deleteScheduleByIds">
-        delete from dept_schedule where id in
+        DELETE FROM dept_schedule WHERE id IN
         <foreach collection="array" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
 
-    <!-- 预约 -->
+    <!-- ==================== 预约 ==================== -->
     <sql id="selectBookingVo">
-        select id, booking_no, dept_id, space_no, work_date,
+        SELECT id, user_id, booking_no, dept_id, space_no, work_date,
                start_time, end_time, car_number, car_model, car_color,
                combo_name, combo_minutes, code, status,
                create_by, create_time, update_by, update_time
-        from car_booking
+        FROM car_booking
     </sql>
+
     <select id="selectBookingList" parameterType="com.ruoyi.booking.domain.CarBooking" resultMap="BookingResult">
         <include refid="selectBookingVo"/>
         <where>
-            <if test="deptId != null">and dept_id = #{deptId}</if>
-            <if test="spaceNo != null and spaceNo != ''">and space_no = #{spaceNo}</if>
-            <if test="workDate != null">and work_date = #{workDate}</if>
-            <if test="carNumber != null and carNumber != ''">and car_number = #{carNumber}</if>
-            <if test="status != null">and status = #{status}</if>
-            <if test="bookingNo != null and bookingNo != ''">and booking_no = #{bookingNo}</if>
+            <if test="deptId != null">AND dept_id = #{deptId}</if>
+            <if test="workDate != null">AND work_date = #{workDate}</if>
+            <if test="status != null">AND status = #{status}</if>
         </where>
-        order by start_time desc
+        ORDER BY start_time
     </select>
+
     <select id="selectBookingByDeptIdAndDate" resultMap="BookingResult">
         <include refid="selectBookingVo"/>
-        where dept_id = #{deptId} and work_date = #{workDate} and status in (0, 1) order by start_time
+        WHERE dept_id = #{deptId} AND work_date = #{workDate}
+        AND status IN (0, 1)
+        ORDER BY start_time
     </select>
+
     <select id="selectBookingByDeptIdAndDateRange" resultMap="BookingResult">
         <include refid="selectBookingVo"/>
-        where dept_id = #{deptId}
-        and work_date between #{startDate} and #{endDate}
-        and status in (0, 1)
-        order by work_date, start_time
+        WHERE dept_id = #{deptId}
+        AND work_date BETWEEN #{startDate} AND #{endDate}
+        AND status IN (0, 1)
+        ORDER BY work_date, start_time
     </select>
+
     <select id="selectBookingByCode" resultMap="BookingResult">
-        <include refid="selectBookingVo"/> where code = #{code}
+        <include refid="selectBookingVo"/> WHERE code = #{code}
     </select>
-    <!-- 冲突检查 -->
+
     <select id="countConflictBooking" resultType="int">
-        select count(*) from car_booking
-        where dept_id = #{deptId}
-          and space_no = #{spaceNo}
-          and work_date = #{workDate}
-          and status in (0, 1)
-          and (start_time &lt; #{endTime} and end_time &gt; #{startTime})
+        SELECT COUNT(*) FROM car_booking
+        WHERE dept_id = #{deptId}
+          AND space_no = #{spaceNo}
+          AND work_date = #{workDate}
+          AND status IN (0, 1)
+          AND (start_time &lt; #{endTime} AND end_time &gt; #{startTime})
     </select>
+
     <insert id="insertBooking" parameterType="com.ruoyi.booking.domain.CarBooking">
-        insert into car_booking
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            booking_no, dept_id, space_no, work_date, start_time, end_time,
-            car_number, car_model, car_color, combo_name, combo_minutes, code, status,
-            create_by, create_time
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            #{bookingNo}, #{deptId}, #{spaceNo}, #{workDate}, #{startTime}, #{endTime},
-            #{carNumber}, #{carModel}, #{carColor}, #{comboName}, #{comboMinutes}, #{code}, #{status},
-            #{createBy}, sysdate()
-        </trim>
+        INSERT INTO car_booking
+        (user_id, booking_no, dept_id, space_no, work_date, start_time, end_time,
+         car_number, car_model, car_color, combo_name, combo_minutes, code, status,
+         create_by, create_time)
+        VALUES
+            (#{userId}, #{bookingNo}, #{deptId}, #{spaceNo}, #{workDate}, #{startTime}, #{endTime},
+             #{carNumber}, #{carModel}, #{carColor}, #{comboName}, #{comboMinutes}, #{code}, #{status},
+             #{createBy}, NOW())
     </insert>
+
     <update id="updateBooking" parameterType="com.ruoyi.booking.domain.CarBooking">
-        update car_booking
+        UPDATE car_booking
         <trim prefix="SET" suffixOverrides=",">
-            <if test="bookingNo != null">booking_no = #{bookingNo},</if>
-            <if test="deptId != null">dept_id = #{deptId},</if>
-            <if test="spaceNo != null">space_no = #{spaceNo},</if>
-            <if test="workDate != null">work_date = #{workDate},</if>
-            <if test="startTime != null">start_time = #{startTime},</if>
-            <if test="endTime != null">end_time = #{endTime},</if>
-            <if test="carNumber != null">car_number = #{carNumber},</if>
-            <if test="carModel != null">car_model = #{carModel},</if>
-            <if test="carColor != null">car_color = #{carColor},</if>
-            <if test="comboName != null">combo_name = #{comboName},</if>
-            <if test="comboMinutes != null">combo_minutes = #{comboMinutes},</if>
-            <if test="code != null">code = #{code},</if>
             <if test="status != null">status = #{status},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
-            update_time = sysdate()
+            update_time = NOW()
         </trim>
-        where id = #{id}
+        WHERE id = #{id}
     </update>
+
     <delete id="deleteBookingByIds">
-        delete from car_booking where id in
+        DELETE FROM car_booking WHERE id IN
         <foreach collection="array" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
+
+    <!-- ==================== 过期预约处理 ==================== -->
+    <select id="selectExpiredBookings" resultMap="BookingResult">
+        <include refid="selectBookingVo"/>
+        WHERE end_time &lt; #{now}
+    </select>
+
+    <insert id="batchInsertHistory">
+        INSERT INTO booking_history
+        (user_id, booking_no, dept_id, space_no, work_date, start_time, end_time,
+        car_number, car_model, car_color, combo_name, combo_minutes, code, status,
+        create_by, create_time, update_by, update_time)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.userId}, #{item.bookingNo}, #{item.deptId}, #{item.spaceNo}, #{item.workDate},
+            #{item.startTime}, #{item.endTime}, #{item.carNumber}, #{item.carModel},
+            #{item.carColor}, #{item.comboName}, #{item.comboMinutes}, #{item.code},
+            #{item.status}, #{item.createBy}, #{item.createTime},
+            #{item.updateBy}, #{item.updateTime})
+        </foreach>
+    </insert>
+
+    <!-- ==================== 我的预约 ==================== -->
+    <select id="selectMyBookingList" resultMap="BookingResult">
+        <include refid="selectBookingVo"/>
+        WHERE user_id = #{userId}
+        <if test="statusList != null and statusList.size() > 0">
+            AND status IN
+            <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                #{s}
+            </foreach>
+        </if>
+        <if test="onlyNotExpired">
+            AND end_time &gt; #{now}
+        </if>
+        ORDER BY start_time DESC
+    </select>
+
+    <select id="selectMyHistoryList" resultMap="BookingResult">
+        SELECT id, user_id, booking_no, dept_id, space_no, work_date,
+               start_time, end_time, car_number, car_model, car_color,
+               combo_name, combo_minutes, code, status,
+               create_by, create_time, update_by, update_time
+        FROM booking_history
+        WHERE user_id = #{userId}
+        ORDER BY start_time DESC
+            LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countMyHistory" resultType="int">
+        SELECT COUNT(*) FROM booking_history WHERE user_id = #{userId}
+    </select>
+
 </mapper>

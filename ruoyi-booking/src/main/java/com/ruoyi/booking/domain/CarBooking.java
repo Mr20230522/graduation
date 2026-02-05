@@ -1,9 +1,11 @@
 package com.ruoyi.booking.domain;
+
 import com.ruoyi.common.core.domain.BaseEntity;
 import java.util.Date;
 
 public class CarBooking extends BaseEntity {
     private Long id;
+    private Long userId;           // 新增：预约用户ID
     private String bookingNo;
     private Long deptId;
     private String spaceNo;
@@ -16,9 +18,13 @@ public class CarBooking extends BaseEntity {
     private String comboName;
     private Integer comboMinutes;
     private String code;
-    private Integer status; // 0待到店 1服务中 2已完成 3已取消
+    private Integer status;
+
+    // getter & setter
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
     public String getBookingNo() { return bookingNo; }
     public void setBookingNo(String bookingNo) { this.bookingNo = bookingNo; }
     public Long getDeptId() { return deptId; }

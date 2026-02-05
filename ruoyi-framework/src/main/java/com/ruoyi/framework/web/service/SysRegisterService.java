@@ -64,6 +64,12 @@ public class SysRegisterService {
             System.err.println("已经开始得到部门：" + dept);
             user.setDeptId(dept.getDeptId());
             userService.insertUser(user);
+
+            /* ✅ 新增：自动创建车位 */
+            Integer carSpaceCount = body.getCarSpaceCount();
+            if (carSpaceCount != null && carSpaceCount > 0) {
+                createCarSpaces(dept.getDeptId(), carSpaceCount, user.getUserName());
+            }
         } else if ("2".equals(body.getUserType())) {
             /* 员工：用公司名换 deptId 并校验 */
             Long deptId = findDeptIdByName(body.getCompanyName());
@@ -134,17 +140,11 @@ public class SysRegisterService {
         dept.setLicense(body.getLicense());
         deptService.insertDept(dept);
 
-        // ✅ 新增：自动创建车位
-        Integer carSpaceCount = body.getCarSpaceCount();
-        if (carSpaceCount != null && carSpaceCount > 0) {
-            createCarSpaces(dept.getDeptId(), carSpaceCount, createBy);
-        }
-
         return dept;
     }
 
     /**
-     * 批量创建车位 A1, A2, A3...
+     * ✅ 新增：批量创建车位 A1, A2, A3...
      */
     private void createCarSpaces(Long deptId, int count, String createBy) {
         for (int i = 1; i <= count; i++) {

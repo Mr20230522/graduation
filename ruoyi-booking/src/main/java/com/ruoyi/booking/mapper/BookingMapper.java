@@ -45,4 +45,18 @@ public interface BookingMapper {
                              @Param("workDate") Date workDate,
                              @Param("startTime") Date startTime,
                              @Param("endTime") Date endTime);
+
+    /* 过期预约处理 */
+    List<CarBooking> selectExpiredBookings(@Param("now") Date now);
+    int batchInsertHistory(@Param("list") List<CarBooking> list);
+
+    /* 我的预约 */
+    List<CarBooking> selectMyBookingList(@Param("userId") Long userId,
+                                         @Param("statusList") List<Integer> statusList,
+                                         @Param("onlyNotExpired") boolean onlyNotExpired,
+                                         @Param("now") Date now);
+    List<CarBooking> selectMyHistoryList(@Param("userId") Long userId,
+                                         @Param("offset") int offset,
+                                         @Param("pageSize") int pageSize);
+    int countMyHistory(@Param("userId") Long userId);
 }
