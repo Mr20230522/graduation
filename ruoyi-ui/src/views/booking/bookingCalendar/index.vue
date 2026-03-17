@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div>
     <el-row :gutter="20">
       <!-- 左侧 7 天日期栏 -->
       <el-col :span="4">
@@ -74,72 +74,15 @@
         <el-button type="primary" @click="submitBook">确 定 预 约</el-button>
       </div>
     </el-dialog>
-
-    <!-- 我的预约（进行中） -->
-    <el-card class="box-card" style="margin-top: 20px">
-      <div slot="header" class="clearfix">
-        <span>我的预约（进行中）</span>
-      </div>
-      <el-table :data="myBookList" style="width: 100%" empty-text="暂无进行中的预约">
-        <el-table-column prop="workDate" label="日期" width="120"/>
-        <el-table-column prop="spaceNo" label="车位" width="80"/>
-        <el-table-column label="时段" width="150">
-          <template slot-scope="scope">
-            {{ scope.row.slot }} - {{ scope.row.endSlot }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="carNumber" label="车牌" width="100"/>
-        <el-table-column prop="comboName" label="套餐" width="120"/>
-        <el-table-column prop="code" label="验证码" width="90"/>
-        <el-table-column label="状态" width="90">
-          <template slot-scope="scope">
-            <el-tag :type="scope.row.status === 0 ? 'warning' : 'success'" size="small">
-              {{ statusMap[scope.row.status] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="100">
-          <template slot-scope="scope">
-            <el-button v-if="scope.row.status === 0" type="text" style="color: #f56c6c" @click="cancelBook(scope.row)">取消</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
-    <!-- 历史记录 -->
-    <el-card class="box-card" style="margin-top: 20px">
-      <div slot="header" class="clearfix">
-        <span>历史记录</span>
-      </div>
-      <el-table :data="myHistoryList" style="width: 100%" empty-text="暂无历史记录">
-        <el-table-column prop="workDate" label="日期" width="120"/>
-        <el-table-column prop="spaceNo" label="车位" width="80"/>
-        <el-table-column label="时段" width="150">
-          <template slot-scope="scope">
-            {{ scope.row.slot }} - {{ scope.row.endSlot }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="carNumber" label="车牌" width="100"/>
-        <el-table-column prop="comboName" label="套餐" width="120"/>
-        <el-table-column label="状态" width="90">
-          <template slot-scope="scope">
-            <el-tag :type="getHistoryStatusType(scope.row.status)" size="small">
-              {{ statusMap[scope.row.status] }}
-            </el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-pagination v-if="historyTotal > 0" :current-page="historyPageNum" :page-size="historyPageSize" :total="historyTotal" layout="total, prev, pager, next" @current-change="handleHistoryPageChange" style="margin-top: 10px; text-align: right"/>
-    </el-card>
   </div>
 </template>
 
 <script>
-import { getCalendar, createBooking, cancelBooking, listMyBooking, listMyHistory } from '@/api/booking/booking'
+import { getCalendar, createBooking } from '@/api/booking/booking'
 import request from '@/utils/request'
 
 export default {
-  name: 'BookingIndex',
+  name: 'BookingCalendar',
   data() {
     return {
       refreshTimer: null,
@@ -159,13 +102,7 @@ export default {
         carModel: '',
         carColor: '',
         comboMinutes: 30
-      },
-      myBookList: [],
-      statusMap: {0: '待到店', 1: '服务中', 2: '已完成', 3: '已取消'},
-      myHistoryList: [],
-      historyPageNum: 1,
-      historyPageSize: 10,
-      historyTotal: 0
+      }
     }
   },
   created() {
@@ -176,55 +113,25 @@ export default {
     this.stopDailyRefresh()
   },
   methods: {
-    /** 设置下一个0点的定时刷新 */
-    scheduleNextDayRefresh() {
-      const now = new Date()
-      const tomorrow = new Date(now)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      tomorrow.setHours(0, 0, 0, 0)
-
-      const msUntilMidnight = tomorrow - now
-
-      setTimeout(() => {
-        console.log('@@凌晨0点，自动刷新日历')
-        this.loadCalendar()
-        this.scheduleNextDayRefresh()
-      }, msUntilMidnight)
-    },
-
-    stopDailyRefresh() {
-      if (this.refreshTimer) {
-        clearInterval(this.refreshTimer)
+    // 刷新当前日期数据
+    refreshCurrentDay() {
+      if (this.selectedDate) {
+        this.loadDayBookings(this.selectedDate)
       }
     },
 
-    /** 启动每日刷新 */
-    startDailyRefresh() {
-      this.refreshTimer = setInterval(() => {
-        const today = this.getLocalDateStr(new Date())
-        if (this.lastRefreshDate && this.lastRefreshDate !== today) {
-          console.log('@@日期变了，重新加载日历')
-          this.loadCalendar()
-        }
-      }, 60000)
-
-      this.scheduleNextDayRefresh()
-    },
-
-    /** 获取用户所属门店 */
+    // 获取用户所属门店
     initDeptId() {
       const userInfo = this.$store.state.user.userInfo || {}
       if (userInfo.deptId && userInfo.deptId !== 0) {
         this.deptId = userInfo.deptId
         this.loadCalendar()
-        this.loadMyBook()
-        this.loadMyHistory()
       } else {
         this.loadDeptList()
       }
     },
 
-    /** 加载门店列表（普通用户） */
+    // 加载门店列表
     loadDeptList() {
       request({
         url: '/system/dept/list',
@@ -234,8 +141,6 @@ export default {
         if (res.data && res.data.length > 0) {
           this.deptId = res.data[0].deptId
           this.loadCalendar()
-          this.loadMyBook()
-          this.loadMyHistory()
         }
       }).catch(err => {
         console.error('加载门店列表失败', err)
@@ -243,29 +148,24 @@ export default {
       })
     },
 
-    /** 加载7天日历 - 修复版：使用本地日期，避免时区问题 */
+    // 加载7天日历
     loadCalendar() {
       const now = new Date()
-      // 使用本地日期格式，避免 toISOString 的 UTC 转换问题
       const todayStr = this.getLocalDateStr(now)
       this.lastRefreshDate = todayStr
-
-      console.log('@@加载日历，今天:', todayStr, 'deptId:', this.deptId)
 
       getCalendar(this.deptId, todayStr).then(res => {
         const data = res.data
 
-        // 生成7天日期列表（从今天开始的7天）- 使用本地时间计算
+        // 生成7天日期列表
         this.dateList = []
         for (let i = 0; i < 7; i++) {
           const d = new Date(now)
           d.setDate(now.getDate() + i)
-          // 重置时间为0点，避免时间累积误差
           d.setHours(0, 0, 0, 0)
 
           const dateStr = this.getLocalDateStr(d)
 
-          // 判断是否是今天/明天
           let dayLabel
           if (i === 0) dayLabel = '今天'
           else if (i === 1) dayLabel = '明天'
@@ -273,32 +173,25 @@ export default {
 
           this.dateList.push({
             date: dateStr,
-            dateStr: dateStr.substr(5), // MM-DD 格式
+            dateStr: dateStr.substr(5),
             day: dayLabel,
-            isExpired: false,
+            isExpired: dateStr < todayStr,
             isToday: i === 0
           })
         }
 
-        console.log('@@生成的日期列表:', this.dateList.map(d => d.date))
-
         // 默认选中今天
         this.selectedDate = this.dateList[0].date
-
-        // 渲染今天的数据
         const todayData = data.schedule[this.selectedDate]
         this.renderDayData(todayData)
-
-        // 加载今天的预约列表
         this.loadDayBookings(this.selectedDate)
-
       }).catch(err => {
         this.$message.error('加载日历失败')
-        console.error('@@加载日历失败:', err)
+        console.error('加载日历失败:', err)
       })
     },
 
-    /** 切换日期 */
+    // 切换日期
     selectDate(date) {
       this.selectedDate = date
       getCalendar(this.deptId, date).then(res => {
@@ -308,7 +201,7 @@ export default {
       })
     },
 
-    /** 加载指定日期的所有预约 */
+    // 加载指定日期的所有预约
     loadDayBookings(date) {
       request({
         url: '/booking/list',
@@ -321,7 +214,7 @@ export default {
       })
     },
 
-    /** 渲染单日数据 */
+    // 渲染单日数据
     renderDayData(dayData) {
       if (!dayData) {
         this.slots = []
@@ -332,17 +225,15 @@ export default {
       this.spaces = dayData.spaces || []
     },
 
-    /** 判断时段状态 */
+    // 判断时段状态
     getSlotClass(space, slot) {
       const isBooked = this.isSlotBooked(space, slot)
       if (isBooked) return 'busy'
-
       if (this.isSlotExpired(slot)) return 'expired'
-
       return 'free'
     },
 
-    /** 检查时段是否已被预约 */
+    // 检查时段是否已被预约
     isSlotBooked(space, slot) {
       if (!this.bookingList || this.bookingList.length === 0) return false
 
@@ -360,14 +251,14 @@ export default {
       })
     },
 
-    /** 检查时段是否已过期 */
+    // 检查时段是否已过期
     isSlotExpired(slot) {
       const now = new Date()
       const slotTime = new Date(this.selectedDate + ' ' + slot + ':00')
       return slotTime < now
     },
 
-    /** 点击时段 */
+    // 点击时段
     handleSlotClick(space, slot) {
       const slotClass = this.getSlotClass(space, slot)
       if (slotClass === 'free') {
@@ -379,7 +270,7 @@ export default {
       }
     },
 
-    /** 打开预约弹窗 */
+    // 打开预约弹窗
     openBook(space, slot) {
       if (!this.selectedDate) {
         this.$message.error('请先选择日期')
@@ -397,7 +288,7 @@ export default {
       this.bookVisible = true
     },
 
-    /** 提交预约 */
+    // 提交预约
     submitBook() {
       if (!this.bookForm.carNumber.trim()) {
         this.$message.error('请输入车牌号码')
@@ -428,64 +319,57 @@ export default {
         this.$message.success('预约成功，验证码：' + res.data.code)
         this.bookVisible = false
         this.loadDayBookings(this.selectedDate)
-        this.loadMyBook()
+        this.$emit('booking-success')
       }).catch(err => {
         this.$message.error(err.msg || '该时段已被预约')
       })
     },
 
-    /** 取消预约 */
-    cancelBook(row) {
-      this.$confirm('确认取消该预约？', '提示', {type: 'warning'}).then(() => {
-        cancelBooking(row.id).then(() => {
-          this.$message.success('预约已取消')
-          this.loadDayBookings(this.selectedDate)
-          this.loadMyBook()
-          this.loadMyHistory()
-        })
-      })
+    // 设置下一个0点的定时刷新
+    scheduleNextDayRefresh() {
+      const now = new Date()
+      const tomorrow = new Date(now)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(0, 0, 0, 0)
+
+      const msUntilMidnight = tomorrow - now
+
+      setTimeout(() => {
+        console.log('凌晨0点，自动刷新日历')
+        this.loadCalendar()
+        this.scheduleNextDayRefresh()
+      }, msUntilMidnight)
     },
 
-    /** 加载我的预约 */
-    loadMyBook() {
-      listMyBooking({statusList: [0, 1], onlyNotExpired: true}).then(res => {
-        this.myBookList = res.data.map(b => ({
-          ...b,
-          slot: b.startTime ? this.formatTime(b.startTime) : '',
-          endSlot: b.endTime ? this.formatTime(b.endTime) : '',
-          comboName: this.getComboName(b.comboMinutes)
-        }))
-      })
+    // 停止每日刷新
+    stopDailyRefresh() {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer)
+      }
     },
 
-    /** 加载历史记录 */
-    loadMyHistory() {
-      listMyHistory({pageNum: this.historyPageNum, pageSize: this.historyPageSize}).then(res => {
-        this.myHistoryList = res.data.list.map(b => ({
-          ...b,
-          slot: b.startTime ? this.formatTime(b.startTime) : '',
-          endSlot: b.endTime ? this.formatTime(b.endTime) : '',
-          comboName: this.getComboName(b.comboMinutes)
-        }))
-        this.historyTotal = res.data.total
-      })
+    // 启动每日刷新
+    startDailyRefresh() {
+      this.refreshTimer = setInterval(() => {
+        const today = this.getLocalDateStr(new Date())
+        if (this.lastRefreshDate && this.lastRefreshDate !== today) {
+          console.log('日期变了，重新加载日历')
+          this.loadCalendar()
+        }
+      }, 60000)
+
+      this.scheduleNextDayRefresh()
     },
 
-    handleHistoryPageChange(val) {
-      this.historyPageNum = val
-      this.loadMyHistory()
+    // 获取本地日期字符串
+    getLocalDateStr(date) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     },
 
-    getHistoryStatusType(status) {
-      const map = {0: 'info', 1: 'success', 2: 'success', 3: 'danger'}
-      return map[status] || 'info'
-    },
-
-    formatTime(dateStr) {
-      const date = new Date(dateStr)
-      return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
-    },
-
+    // 格式化显示日期
     formatDisplayDate(dateStr) {
       if (!dateStr) return ''
       const date = new Date(dateStr)
@@ -493,6 +377,7 @@ export default {
       return `${dateStr}（星期${weekDays[date.getDay()]}）`
     },
 
+    // 计算结束时间
     calculateEndTime(startSlot, minutes) {
       if (!startSlot || !minutes) return '--:--'
       const [hours, mins] = startSlot.split(':').map(Number)
@@ -502,36 +387,27 @@ export default {
       return endDate.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
     },
 
-    getComboName(minutes) {
-      const map = {30: '标准洗车', 60: '精洗+打蜡', 90: '全套护理'}
-      return map[minutes] || '未知套餐'
-    },
-
+    // 获取星期描述
     getDayDesc(date) {
       const days = ['日', '一', '二', '三', '四', '五', '六']
       return '周' + days[date.getDay()]
     },
 
+    // 格式化时段显示
     formatSlotDisplay(slot) {
       return typeof slot === 'string' ? slot : slot.time || slot.label
     },
 
-    /** 获取本地日期字符串（修复时区问题） */
-    getLocalDateStr(date) {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
+    // 格式化时间
+    formatTime(dateStr) {
+      const date = new Date(dateStr)
+      return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
     }
   }
 }
 </script>
 
 <style scoped>
-.app-container {
-  padding: 20px;
-}
-
 .date-bar {
   border-right: 1px solid #ebeef5;
   padding-right: 10px;
@@ -677,14 +553,6 @@ export default {
 
 .end-time-text {
   color: #909399;
-}
-
-.box-card {
-  margin-top: 20px;
-}
-
-.clearfix {
-  font-weight: bold;
 }
 
 .dialog-footer {

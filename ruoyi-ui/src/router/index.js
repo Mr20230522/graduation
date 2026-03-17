@@ -20,12 +20,12 @@ import Layout from '@/layout'
  * roles: ['admin', 'common']       // 访问路由的角色权限
  * permissions: ['a:a:a', 'b:b:b']  // 访问路由的菜单权限
  * meta : {
-    noCache: true                   // 如果设置为true，则不会被 <keep-alive> 缓存(默认 false)
-    title: 'title'                  // 设置该路由在侧边栏和面包屑中展示的名字
-    icon: 'svg-name'                // 设置该路由的图标，对应路径src/assets/icons/svg
-    breadcrumb: false               // 如果设置为false，则不会在breadcrumb面包屑中显示
-    activeMenu: '/system/user'      // 当路由设置了该属性，则会高亮相对应的侧边栏。
-  }
+ noCache: true                   // 如果设置为true，则不会被 <keep-alive> 缓存(默认 false)
+ title: 'title'                  // 设置该路由在侧边栏和面包屑中展示的名字
+ icon: 'svg-name'                // 设置该路由的图标，对应路径src/assets/icons/svg
+ breadcrumb: false               // 如果设置为false，则不会在breadcrumb面包屑中显示
+ activeMenu: '/system/user'      // 当路由设置了该属性，则会高亮相对应的侧边栏。
+ }
  */
 
 // 公共路由
@@ -90,6 +90,37 @@ export const constantRoutes = [
         component: () => import('@/views/system/user/profile/index'),
         name: 'Profile',
         meta: { title: '个人中心', icon: 'user' }
+      }
+    ]
+  },
+  {
+    path: '/tool',
+    component: Layout,
+    hidden: false,
+    children: [
+      {
+        path: 'build',
+        component: () => import('@/views/tool/build'),
+        name: 'Build',
+        meta: { title: '表单构建', icon: 'build' }
+      },
+      {
+        path: 'gen',
+        component: () => import('@/views/tool/gen'),
+        name: 'Gen',
+        meta: { title: '代码生成', icon: 'code' }
+      },
+      {
+        path: 'swagger',
+        component: () => import('@/views/tool/swagger'),
+        name: 'Swagger',
+        meta: { title: '系统接口', icon: 'swagger' }
+      },
+      {
+        path: 'amap',
+        component: () => import('@/views/tool/amap'),
+        name: 'Amap',
+        meta: { title: '高德地图', icon: 'map' }
       }
     ]
   }
