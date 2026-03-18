@@ -121,6 +121,52 @@ export const constantRoutes = [
         component: () => import('@/views/tool/amap'),
         name: 'Amap',
         meta: { title: '高德地图', icon: 'map' }
+      },
+    ],
+  },
+  {
+    path: '/booking',
+    component: Layout,
+    meta: {
+      title: '车辆预约',
+      icon: 'dashboard'  // 这里写图标名称
+    },
+    children: [
+      {
+        path: 'deptSelect',
+        component: () => import('@/views/booking/deptSelect'),
+        name: 'DeptSelect',
+        meta: {
+          title: '门店选择',
+          icon: 'dashboard'  // 门店图标
+        }
+      },
+      {
+        path: 'calendar',
+        component: () => import('@/views/booking/bookingCalendar'),
+        name: 'BookingCalendar',
+        meta: {
+          title: '预约日历',
+          icon: 'dashboard'  // 日历图标
+        }
+      },
+      {
+        path: 'myBooking',
+        component: () => import('@/views/booking/myBookingList'),
+        name: 'MyBooking',
+        meta: {
+          title: '我的预约',
+          icon: 'dashboard'  // 订单图标
+        }
+      },
+      {
+        path: 'history',
+        component: () => import('@/views/booking/bookingHistory'),
+        name: 'BookingHistory',
+        meta: {
+          title: '历史记录',
+          icon: 'dashboard'  // 历史图标
+        }
       }
     ]
   }

@@ -116,3 +116,21 @@ export function getComboName(minutes) {
   }
   return nameMap[minutes] || '未知套餐'
 }
+
+
+/** 获取门店列表 */
+export function getDeptList(params) {
+  return request({
+    url: '/system/dept/list',
+    method: 'get',
+    params: params
+  })
+}
+
+/** 获取门店详情 */
+export function getDeptDetail(deptId) {
+  return request({
+    url: '/system/dept/' + deptId,
+    method: 'get'
+  })
+}
