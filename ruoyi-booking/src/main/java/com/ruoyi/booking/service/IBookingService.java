@@ -27,11 +27,12 @@ public interface IBookingService {
 
     /* ========== 预约核心 ========== */
     Map<String, Object> getCalendarData(Long deptId, Date startDate);
-    Map<String, Object> createBooking(CarBooking booking);
+    Map<String, Object> createBooking(CarBooking booking, String orderNo);
     boolean verifyBooking(String code);
     boolean cancelBooking(Long bookingId);
 
     /* ========== 我的预约 ========== */
     List<CarBooking> selectMyBookingList(Long userId, List<Integer> statusList, boolean onlyNotExpired);
     Map<String, Object> selectMyHistoryList(Long userId, int pageNum, int pageSize);
+
 }

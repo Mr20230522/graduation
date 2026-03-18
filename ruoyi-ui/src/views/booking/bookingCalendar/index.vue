@@ -1,5 +1,6 @@
 <template>
   <div>
+    <!-- 原有日历内容保持不变 -->
     <el-row :gutter="20">
       <!-- 左侧 7 天日期栏 -->
       <el-col :span="4">
@@ -35,8 +36,8 @@
       </el-col>
     </el-row>
 
-    <!-- 预约弹窗 -->
-    <el-dialog title="确认预约" :visible.sync="bookVisible" width="420px">
+    <!-- 第一步：填写预约信息弹窗 -->
+    <el-dialog title="填写预约信息" :visible.sync="bookVisible" width="420px" @close="resetBookForm">
       <el-form :model="bookForm" label-width="90px">
         <el-form-item label="预约日期">
           <div class="display-text date-text">{{ formatDisplayDate(bookForm.workDate) }}</div>
@@ -46,7 +47,7 @@
         </el-form-item>
         <el-form-item label="预约时段">
           <div class="display-text time-text">
-            {{ bookForm.slot }} - {{ calculateEndTime(bookForm.slot, bookForm.comboMinutes) }}
+            {{ bookForm.slot }}
           </div>
         </el-form-item>
         <el-form-item label="服务套餐">
@@ -68,10 +69,121 @@
         <el-form-item label="车辆颜色">
           <el-input v-model="bookForm.carColor" placeholder="例：白色" maxlength="10"/>
         </el-form-item>
+        <el-form-item label="金额">
+          <div class="display-text amount-text">¥ {{ getComboPrice(bookForm.comboMinutes) }}</div>
+        </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="bookVisible = false">取 消</el-button>
-        <el-button type="primary" @click="submitBook">确 定 预 约</el-button>
+        <el-button type="primary" @click="createOrder" :loading="orderLoading">下一步：去支付</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 第二步：支付弹窗 -->
+    <el-dialog title="订单支付" :visible.sync="payVisible" width="500px" @close="handlePayClose" :close-on-click-modal="false">
+      <div class="pay-container">
+        <!-- 订单信息 -->
+        <div class="order-info" v-if="currentOrder.orderNo">
+          <h4>订单信息</h4>
+          <div class="info-item">
+            <span>订单号：</span>
+            <span class="order-no">{{ currentOrder.orderNo }}</span>
+          </div>
+          <div class="info-item">
+            <span>预约时间：</span>
+            <span>{{ bookForm.workDate }} {{ bookForm.slot }}</span>
+          </div>
+          <div class="info-item">
+            <span>车位：</span>
+            <span>{{ bookForm.spaceNo }}</span>
+          </div>
+          <div class="info-item">
+            <span>套餐：</span>
+            <span>{{ getComboName(bookForm.comboMinutes) }}</span>
+          </div>
+          <div class="info-item">
+            <span>车牌：</span>
+            <span>{{ bookForm.carNumber }}</span>
+          </div>
+        </div>
+
+        <!-- 金额 -->
+        <div class="amount-info">
+          <span>应付金额：</span>
+          <span class="amount">¥ {{ currentOrder.amount || getComboPrice(bookForm.comboMinutes) }}</span>
+        </div>
+
+        <!-- 过期时间倒计时 -->
+        <div class="expire-info" v-if="expireTime">
+          <el-alert
+            :title="'请在 ' + expireTime + ' 内完成支付'"
+            type="warning"
+            :closable="false">
+          </el-alert>
+        </div>
+
+        <!-- 支付方式选择 -->
+        <div class="pay-methods" v-if="!showQrCode">
+          <h4>选择支付方式</h4>
+          <div class="method-list">
+            <div class="method-item"
+                 :class="{ active: payMethod === 'alipay' }"
+                 @click="payMethod = 'alipay'">
+              <i class="el-icon-s-finance"></i>
+              <span>支付宝</span>
+            </div>
+            <div class="method-item"
+                 :class="{ active: payMethod === 'wechat' }"
+                 @click="payMethod = 'wechat'">
+              <i class="el-icon-wechat"></i>
+              <span>微信支付</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 二维码区域（扫码支付） -->
+        <div v-if="showQrCode" class="qr-code">
+          <img :src="qrCodeUrl" alt="支付二维码">
+          <p>请使用{{ payMethod === 'alipay' ? '支付宝' : '微信' }}扫码支付</p>
+          <p class="qr-tip">支付完成后请点击"我已支付"</p>
+        </div>
+
+        <!-- 支付状态提示 -->
+        <div v-if="payStatus === 'paying'" class="pay-status paying">
+          <i class="el-icon-loading"></i>
+          <span>支付处理中，请稍候...</span>
+        </div>
+        <div v-if="payStatus === 'success'" class="pay-status success">
+          <i class="el-icon-success"></i>
+          <span>支付成功！正在创建预约...</span>
+        </div>
+        <div v-if="payStatus === 'fail'" class="pay-status fail">
+          <i class="el-icon-error"></i>
+          <span>支付失败，请重试</span>
+        </div>
+      </div>
+
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="cancelPay" :disabled="payStatus === 'paying'">取 消</el-button>
+        <el-button v-if="!showQrCode" type="success" @click="handlePay" :loading="payLoading">
+          确认支付
+        </el-button>
+        <el-button v-else type="success" @click="queryPayResult" :loading="payLoading">
+          我已支付
+        </el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 第三步：支付结果弹窗 -->
+    <el-dialog title="支付结果" :visible.sync="resultVisible" width="400px">
+      <div class="pay-result" :class="paySuccess ? 'success' : 'fail'">
+        <i :class="paySuccess ? 'el-icon-success' : 'el-icon-error'"></i>
+        <h3>{{ paySuccess ? '支付成功' : '支付失败' }}</h3>
+        <p v-if="paySuccess">预约验证码：<span class="code">{{ bookingCode }}</span></p>
+        <p v-else>{{ payErrorMsg || '支付失败，请重新预约' }}</p>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button type="primary" @click="finishPay">完成</el-button>
       </div>
     </el-dialog>
   </div>
@@ -79,12 +191,14 @@
 
 <script>
 import { getCalendar, createBooking } from '@/api/booking/booking'
+import { createOrder, payOrder, getPayStatus, cancelOrder, getComboPrice, getComboName } from '@/api/booking/booking'
 import request from '@/utils/request'
 
 export default {
   name: 'BookingCalendar',
   data() {
     return {
+      // 原有数据
       refreshTimer: null,
       lastRefreshDate: '',
       deptId: 1,
@@ -93,6 +207,8 @@ export default {
       spaces: [],
       bookingList: [],
       selectedDate: '',
+
+      // 第一步：预约表单
       bookVisible: false,
       bookForm: {
         workDate: '',
@@ -102,7 +218,30 @@ export default {
         carModel: '',
         carColor: '',
         comboMinutes: 30
-      }
+      },
+      orderLoading: false,
+
+      // 第二步：支付
+      payVisible: false,
+      currentOrder: {
+        orderNo: '',
+        amount: 0,
+        expireTime: null
+      },
+      payMethod: 'alipay',
+      payLoading: false,
+      showQrCode: false,
+      qrCodeUrl: '',
+      payStatus: '', // 'paying', 'success', 'fail'
+      expireTime: '',
+      timer: null,
+      payTimer: null,
+
+      // 第三步：结果
+      resultVisible: false,
+      paySuccess: false,
+      bookingCode: '',
+      payErrorMsg: ''
     }
   },
   created() {
@@ -111,16 +250,10 @@ export default {
   },
   beforeDestroy() {
     this.stopDailyRefresh()
+    this.clearTimers()
   },
   methods: {
-    // 刷新当前日期数据
-    refreshCurrentDay() {
-      if (this.selectedDate) {
-        this.loadDayBookings(this.selectedDate)
-      }
-    },
-
-    // 获取用户所属门店
+    // 初始化门店ID
     initDeptId() {
       const userInfo = this.$store.state.user.userInfo || {}
       if (userInfo.deptId && userInfo.deptId !== 0) {
@@ -148,7 +281,7 @@ export default {
       })
     },
 
-    // 加载7天日历
+    // 加载日历
     loadCalendar() {
       const now = new Date()
       const todayStr = this.getLocalDateStr(now)
@@ -201,7 +334,7 @@ export default {
       })
     },
 
-    // 加载指定日期的所有预约
+    // 加载预约列表
     loadDayBookings(date) {
       request({
         url: '/booking/list',
@@ -288,44 +421,308 @@ export default {
       this.bookVisible = true
     },
 
-    // 提交预约
-    submitBook() {
+    // 重置预约表单
+    resetBookForm() {
+      // 不清空，只是关闭时不做特殊处理
+    },
+
+    // ==================== 支付相关方法 ====================
+
+    // 第一步：创建订单
+    async createOrder() {
       if (!this.bookForm.carNumber.trim()) {
         this.$message.error('请输入车牌号码')
         return
       }
 
-      const timeStr = this.bookForm.slot + ':00'
-      const startTimeStr = this.bookForm.workDate + ' ' + timeStr
-      const startTime = new Date(startTimeStr)
+      this.orderLoading = true
 
-      if (isNaN(startTime.getTime())) {
-        this.$message.error('时间格式错误')
-        return
-      }
+      try {
+        // 计算开始时间
+        const timeStr = this.bookForm.slot + ':00'
+        const startTimeStr = this.bookForm.workDate + ' ' + timeStr
 
-      const param = {
-        deptId: this.deptId,
-        spaceNo: this.bookForm.spaceNo,
-        workDate: this.bookForm.workDate,
-        startTime: startTime,
-        comboMinutes: this.bookForm.comboMinutes,
-        carNumber: this.bookForm.carNumber.trim(),
-        carModel: this.bookForm.carModel.trim(),
-        carColor: this.bookForm.carColor.trim()
-      }
+        const res = await createOrder({
+          deptId: this.deptId,
+          workDate: this.bookForm.workDate,
+          spaceNo: this.bookForm.spaceNo,
+          slot: this.bookForm.slot,
+          comboMinutes: this.bookForm.comboMinutes,
+          carNumber: this.bookForm.carNumber.trim(),
+          carModel: this.bookForm.carModel.trim(),
+          carColor: this.bookForm.carColor.trim()
+        })
 
-      createBooking(param).then(res => {
-        this.$message.success('预约成功，验证码：' + res.data.code)
+        // 保存订单信息
+        this.currentOrder = res.data
+
+        // 设置过期时间倒计时
+        if (this.currentOrder.expireTime) {
+          this.startExpireCountdown(this.currentOrder.expireTime)
+        }
+
+        // 关闭预约弹窗，打开支付弹窗
         this.bookVisible = false
-        this.loadDayBookings(this.selectedDate)
-        this.$emit('booking-success')
-      }).catch(err => {
-        this.$message.error(err.msg || '该时段已被预约')
-      })
+        this.payVisible = true
+        this.payStatus = ''
+        this.showQrCode = false
+
+      } catch (error) {
+        this.$message.error(error.msg || '创建订单失败')
+      } finally {
+        this.orderLoading = false
+      }
     },
 
-    // 设置下一个0点的定时刷新
+    // 第二步：发起支付
+    async handlePay() {
+      this.payLoading = true
+
+      try {
+        const res = await payOrder({
+          orderNo: this.currentOrder.orderNo,
+          payMethod: this.payMethod
+        })
+
+        if (res.data.qrCode) {
+          // 显示二维码
+          this.showQrCode = true
+          this.qrCodeUrl = res.data.qrCode
+          // 开始轮询查询支付结果
+          this.startPayPolling()
+        } else if (res.data.payUrl) {
+          // 跳转到支付页面
+          window.location.href = res.data.payUrl
+          // 开始轮询（跳转后返回时继续查询）
+          this.startPayPolling()
+        }
+
+      } catch (error) {
+        this.$message.error(error.msg || '支付发起失败')
+        this.payStatus = 'fail'
+      } finally {
+        this.payLoading = false
+      }
+    },
+
+    // 开始轮询支付结果
+    startPayPolling() {
+      this.payStatus = 'paying'
+      let count = 0
+      this.payTimer = setInterval(async () => {
+        try {
+          const res = await getPayStatus(this.currentOrder.orderNo)
+
+          if (res.data.status === 2) { // 已支付
+            this.payStatus = 'success'
+            clearInterval(this.payTimer)
+            // 支付成功，创建预约
+            await this.createBookingAfterPay()
+
+          } else if (res.data.status === 3) { // 已取消/过期
+            this.payStatus = 'fail'
+            this.payErrorMsg = '订单已过期'
+            clearInterval(this.payTimer)
+
+          }
+
+          // 轮询30次（约90秒）后停止
+          count++
+          if (count > 30) {
+            clearInterval(this.payTimer)
+            if (this.payStatus !== 'success') {
+              this.payStatus = 'fail'
+              this.payErrorMsg = '支付超时'
+            }
+          }
+
+        } catch (error) {
+          console.error('查询支付状态失败', error)
+        }
+      }, 3000) // 每3秒查询一次
+    },
+
+    // 手动查询支付结果（点击"我已支付"）
+    async queryPayResult() {
+      this.payLoading = true
+      try {
+        const res = await getPayStatus(this.currentOrder.orderNo)
+
+        if (res.data.status === 2) {
+          // 支付成功
+          clearInterval(this.payTimer)
+          this.payStatus = 'success'
+          await this.createBookingAfterPay()
+        } else if (res.data.status === 3) {
+          this.$message.error('订单已过期')
+          this.payVisible = false
+          this.bookVisible = true
+        } else {
+          this.$message.info('暂未检测到支付，请确认是否已完成支付')
+        }
+      } catch (error) {
+        this.$message.error('查询失败')
+      } finally {
+        this.payLoading = false
+      }
+    },
+
+    // 第三步：支付成功后创建预约
+    async createBookingAfterPay() {
+      try {
+        const startTime = this.bookForm.workDate + ' ' + this.bookForm.slot + ':00'
+
+        const bookingData = {
+          deptId: this.deptId,
+          spaceNo: this.bookForm.spaceNo,
+          workDate: this.bookForm.workDate,
+          startTime: startTime,
+          comboMinutes: this.bookForm.comboMinutes,
+          comboName: getComboName(this.bookForm.comboMinutes),
+          carNumber: this.bookForm.carNumber.trim(),
+          carModel: this.bookForm.carModel.trim(),
+          carColor: this.bookForm.carColor.trim()
+        }
+
+        const res = await createBooking(bookingData, this.currentOrder.orderNo)
+
+        // 保存预约信息
+        this.bookingCode = res.data.code
+        this.paySuccess = true
+
+        // 关闭支付弹窗，打开结果弹窗
+        this.payVisible = false
+        this.resultVisible = true
+
+        // 刷新日历数据
+        this.loadDayBookings(this.selectedDate)
+        this.$emit('booking-success')
+
+      } catch (error) {
+        this.paySuccess = false
+        this.payErrorMsg = error.msg || '创建预约失败'
+        this.payVisible = false
+        this.resultVisible = true
+      }
+    },
+
+    // 取消支付
+    async cancelPay() {
+      if (this.currentOrder.orderNo) {
+        try {
+          await cancelOrder(this.currentOrder.orderNo)
+        } catch (error) {
+          console.error('取消订单失败', error)
+        }
+      }
+      this.payVisible = false
+      this.bookVisible = true
+      this.clearTimers()
+    },
+
+    // 支付弹窗关闭时
+    handlePayClose() {
+      this.clearTimers()
+      this.showQrCode = false
+      this.qrCodeUrl = ''
+      this.payStatus = ''
+    },
+
+    // 完成支付
+    finishPay() {
+      this.resultVisible = false
+      if (this.paySuccess) {
+        // 可以跳转到我的预约页面
+        // this.$router.push('/myBooking')
+      }
+    },
+
+    // 开始过期倒计时
+    startExpireCountdown(expireTime) {
+      const end = new Date(expireTime).getTime()
+      this.timer = setInterval(() => {
+        const now = new Date().getTime()
+        const distance = end - now
+
+        if (distance < 0) {
+          this.expireTime = '已过期'
+          clearInterval(this.timer)
+          return
+        }
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+        this.expireTime = `${minutes}分${seconds}秒`
+      }, 1000)
+    },
+
+    // 清除所有定时器
+    clearTimers() {
+      if (this.timer) {
+        clearInterval(this.timer)
+        this.timer = null
+      }
+      if (this.payTimer) {
+        clearInterval(this.payTimer)
+        this.payTimer = null
+      }
+    },
+
+    // ==================== 工具方法 ====================
+
+    getComboName(minutes) {
+      return getComboName(minutes)
+    },
+
+    getComboPrice(minutes) {
+      return getComboPrice(minutes)
+    },
+
+    // 计算结束时间
+    calculateEndTime(startSlot, minutes) {
+      if (!startSlot || !minutes) return '--:--'
+      const [hours, mins] = startSlot.split(':').map(Number)
+      const startDate = new Date()
+      startDate.setHours(hours, mins, 0, 0)
+      const endDate = new Date(startDate.getTime() + minutes * 60000)
+      return endDate.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
+    },
+
+    // 格式化显示日期
+    formatDisplayDate(dateStr) {
+      if (!dateStr) return ''
+      const date = new Date(dateStr)
+      const weekDays = ['日', '一', '二', '三', '四', '五', '六']
+      return `${dateStr}（星期${weekDays[date.getDay()]}）`
+    },
+
+    // 获取星期描述
+    getDayDesc(date) {
+      const days = ['日', '一', '二', '三', '四', '五', '六']
+      return '周' + days[date.getDay()]
+    },
+
+    // 格式化时段显示
+    formatSlotDisplay(slot) {
+      return typeof slot === 'string' ? slot : slot.time || slot.label
+    },
+
+    // 获取本地日期字符串
+    getLocalDateStr(date) {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    },
+
+    // 刷新当前日期
+    refreshCurrentDay() {
+      if (this.selectedDate) {
+        this.loadDayBookings(this.selectedDate)
+      }
+    },
+
+    // 每日刷新相关
     scheduleNextDayRefresh() {
       const now = new Date()
       const tomorrow = new Date(now)
@@ -341,14 +738,12 @@ export default {
       }, msUntilMidnight)
     },
 
-    // 停止每日刷新
     stopDailyRefresh() {
       if (this.refreshTimer) {
         clearInterval(this.refreshTimer)
       }
     },
 
-    // 启动每日刷新
     startDailyRefresh() {
       this.refreshTimer = setInterval(() => {
         const today = this.getLocalDateStr(new Date())
@@ -359,55 +754,180 @@ export default {
       }, 60000)
 
       this.scheduleNextDayRefresh()
-    },
-
-    // 获取本地日期字符串
-    getLocalDateStr(date) {
-      const year = date.getFullYear()
-      const month = String(date.getMonth() + 1).padStart(2, '0')
-      const day = String(date.getDate()).padStart(2, '0')
-      return `${year}-${month}-${day}`
-    },
-
-    // 格式化显示日期
-    formatDisplayDate(dateStr) {
-      if (!dateStr) return ''
-      const date = new Date(dateStr)
-      const weekDays = ['日', '一', '二', '三', '四', '五', '六']
-      return `${dateStr}（星期${weekDays[date.getDay()]}）`
-    },
-
-    // 计算结束时间
-    calculateEndTime(startSlot, minutes) {
-      if (!startSlot || !minutes) return '--:--'
-      const [hours, mins] = startSlot.split(':').map(Number)
-      const startDate = new Date()
-      startDate.setHours(hours, mins, 0, 0)
-      const endDate = new Date(startDate.getTime() + minutes * 60000)
-      return endDate.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
-    },
-
-    // 获取星期描述
-    getDayDesc(date) {
-      const days = ['日', '一', '二', '三', '四', '五', '六']
-      return '周' + days[date.getDay()]
-    },
-
-    // 格式化时段显示
-    formatSlotDisplay(slot) {
-      return typeof slot === 'string' ? slot : slot.time || slot.label
-    },
-
-    // 格式化时间
-    formatTime(dateStr) {
-      const date = new Date(dateStr)
-      return date.toLocaleTimeString('zh-CN', {hour: '2-digit', minute: '2-digit', hour12: false})
     }
   }
 }
 </script>
 
 <style scoped>
+/* 原有样式保持不变，新增支付相关样式 */
+
+.pay-container {
+  padding: 10px;
+}
+
+.order-info {
+  background: #f5f7fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.order-info h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #333;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.order-no {
+  color: #409eff;
+  font-weight: bold;
+}
+
+.amount-info {
+  text-align: right;
+  padding: 15px;
+  font-size: 16px;
+  border-bottom: 1px solid #ebeef5;
+  margin-bottom: 15px;
+}
+
+.amount {
+  color: #f56c6c;
+  font-size: 28px;
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.amount-text {
+  color: #f56c6c;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.expire-info {
+  margin-bottom: 20px;
+}
+
+.pay-methods h4 {
+  margin-bottom: 15px;
+  font-size: 15px;
+}
+
+.method-list {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.method-item {
+  flex: 1;
+  padding: 15px;
+  border: 2px solid #dcdfe6;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.method-item:hover {
+  border-color: #409eff;
+}
+
+.method-item.active {
+  border-color: #67c23a;
+  background: #f0f9eb;
+}
+
+.method-item i {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.qr-code {
+  text-align: center;
+  padding: 20px;
+}
+
+.qr-code img {
+  width: 200px;
+  height: 200px;
+  margin-bottom: 10px;
+  border: 1px solid #dcdfe6;
+}
+
+.qr-tip {
+  color: #e6a23c;
+  font-size: 14px;
+}
+
+.pay-status {
+  text-align: center;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 4px;
+}
+
+.pay-status.paying {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.pay-status.success {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.pay-status.fail {
+  background: #fff2f0;
+  color: #f5222d;
+}
+
+.pay-status i {
+  font-size: 24px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.pay-result {
+  text-align: center;
+  padding: 30px;
+}
+
+.pay-result i {
+  font-size: 64px;
+}
+
+.pay-result.success i {
+  color: #67c23a;
+}
+
+.pay-result.fail i {
+  color: #f56c6c;
+}
+
+.pay-result h3 {
+  margin: 15px 0;
+  font-size: 20px;
+}
+
+.pay-result .code {
+  font-size: 24px;
+  font-weight: bold;
+  color: #409eff;
+  letter-spacing: 2px;
+}
+
+/* 原有样式继续保留 */
 .date-bar {
   border-right: 1px solid #ebeef5;
   padding-right: 10px;

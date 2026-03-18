@@ -1,7 +1,10 @@
 package com.ruoyi.booking.controller;
 
 import com.ruoyi.booking.domain.CarBooking;
+import com.ruoyi.booking.domain.dto.CreateOrderDTO;
+import com.ruoyi.booking.domain.dto.PayDTO;
 import com.ruoyi.booking.mapper.BookingMapper;
+import com.ruoyi.booking.service.IBookingOrderService;
 import com.ruoyi.booking.service.IBookingService;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -20,6 +23,8 @@ public class BookingController extends BaseController {
     private IBookingService bookingService;
     @Autowired
     private BookingMapper bookingMapper;
+    @Autowired
+    private IBookingOrderService bookingOrderService;
 
     /** 获取7天日历数据 */
     @GetMapping("/calendar")
@@ -45,10 +50,23 @@ public class BookingController extends BaseController {
         return AjaxResult.success(list);
     }
 
-    /** 创建预约 */
+    /**
+     * 创建预约（支付成功后调用）
+     * 兼容旧版：如果没有订单号，传null即可
+     */
     @PostMapping("/create")
-    public AjaxResult createBooking(@RequestBody CarBooking booking) {
-        return AjaxResult.success(bookingService.createBooking(booking));
+    public AjaxResult createBooking(@RequestBody CarBooking booking,
+                                    @RequestParam(required = false) String orderNo) {
+        return AjaxResult.success(bookingService.createBooking(booking, orderNo));
+    }
+
+    /**
+     * 兼容旧版：无订单号的创建预约
+     * 为了不让前端修改，保留这个接口
+     */
+    @PostMapping("/create/old")
+    public AjaxResult createBookingOld(@RequestBody CarBooking booking) {
+        return AjaxResult.success(bookingService.createBooking(booking, null));
     }
 
     /** 取消预约 */
@@ -77,5 +95,45 @@ public class BookingController extends BaseController {
                                     @RequestParam(defaultValue = "10") int pageSize) {
         Long userId = SecurityUtils.getUserId();
         return AjaxResult.success(bookingService.selectMyHistoryList(userId, pageNum, pageSize));
+    }
+
+    /**
+     * 创建订单（预约前）
+     */
+    @PostMapping("/order/create")
+    public AjaxResult createOrder(@RequestBody CreateOrderDTO dto) {
+        return AjaxResult.success(bookingOrderService.createOrder(dto));
+    }
+
+    /**
+     * 发起支付
+     */
+    @PostMapping("/order/pay")
+    public AjaxResult pay(@RequestBody PayDTO dto) {
+        return AjaxResult.success(bookingOrderService.pay(dto));
+    }
+
+    /**
+     * 查询支付状态
+     */
+    @GetMapping("/order/status/{orderNo}")
+    public AjaxResult getPayStatus(@PathVariable String orderNo) {
+        return AjaxResult.success(bookingOrderService.getPayStatus(orderNo));
+    }
+
+    /**
+     * 支付回调（支付宝/微信异步通知）
+     */
+    @PostMapping("/order/callback/{paymentMethod}")
+    public String payCallback(@PathVariable String paymentMethod, @RequestBody String callbackData) {
+        return bookingOrderService.handlePayCallback(paymentMethod, callbackData);
+    }
+
+    /**
+     * 取消订单
+     */
+    @PostMapping("/order/cancel/{orderNo}")
+    public AjaxResult cancelOrder(@PathVariable String orderNo) {
+        return AjaxResult.success(bookingOrderService.cancelOrder(orderNo));
     }
 }

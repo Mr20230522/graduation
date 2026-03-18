@@ -6,6 +6,7 @@ import com.ruoyi.booking.domain.DeptSchedule;
 import com.ruoyi.booking.mapper.BookingMapper;
 import com.ruoyi.booking.service.IBookingService;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -238,7 +239,7 @@ public class BookingServiceImpl implements IBookingService {
 
     @Override
     @Transactional
-    public Map<String, Object> createBooking(CarBooking booking) {
+    public Map<String, Object> createBooking(CarBooking booking, String orderNo) {
         Map<String, Object> result = new HashMap<>();
 
         // 计算结束时间
@@ -271,6 +272,13 @@ public class BookingServiceImpl implements IBookingService {
         booking.setStatus(0);
 
         bookingMapper.insertBooking(booking);
+
+        // 如果有订单号，更新订单关联的预约ID
+        if (StringUtils.isNotEmpty(orderNo)) {
+            // 这里需要调用订单服务更新订单的预约ID
+            // bookingOrderService.updateBookingNo(orderNo, bookingNo, booking.getId());
+        }
+
         result.put("success", true);
         result.put("bookingNo", bookingNo);
         result.put("code", code);
