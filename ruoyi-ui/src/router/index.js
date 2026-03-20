@@ -167,6 +167,16 @@ export const constantRoutes = [
           title: '历史记录',
           icon: 'dashboard'  // 历史图标
         }
+      },
+      {
+        path: '/booking/deptDetail/:deptId',
+        component: () => import('@/views/booking/DeptDetail'),
+        name: 'DeptDetail',
+        meta: {
+          title: '门店详情',
+          icon: 'shop',
+          hidden: true  // 不在菜单显示
+        }
       }
     ]
   }

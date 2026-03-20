@@ -134,3 +134,61 @@ export function getDeptDetail(deptId) {
     method: 'get'
   })
 }
+
+// ==================== 评价相关接口 ====================
+
+/** 创建评价 */
+export function createReview(data) {
+  return request({
+    url: '/booking/review/create',
+    method: 'post',
+    data: data
+  })
+}
+
+/** 获取门店评价列表 */
+export function getDeptReviews(deptId, pageNum, pageSize) {
+  return request({
+    url: '/booking/review/list',
+    method: 'get',
+    params: {
+      deptId,
+      pageNum,
+      pageSize
+    }
+  })
+}
+
+/** 获取门店评分统计 */
+export function getDeptRatingStats(deptId) {
+  return request({
+    url: '/booking/review/stats/' + deptId,
+    method: 'get'
+  })
+}
+
+/** 商家回复评价 */
+export function replyReview(reviewId, replyContent) {
+  return request({
+    url: '/booking/review/reply/' + reviewId,
+    method: 'post',
+    data: replyContent
+  })
+}
+
+/** 删除评价 */
+export function deleteReview(reviewId) {
+  return request({
+    url: '/booking/review/delete/' + reviewId,
+    method: 'delete'
+  })
+}
+
+/** 获取我的评价列表 */
+export function getMyReviews(pageNum, pageSize) {
+  return request({
+    url: '/booking/review/my',
+    method: 'get',
+    params: { pageNum, pageSize }
+  })
+}

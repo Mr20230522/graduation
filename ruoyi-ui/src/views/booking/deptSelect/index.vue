@@ -12,15 +12,26 @@
       <div v-loading="loading" class="dept-list">
         <el-row :gutter="20">
           <el-col :span="8" v-for="dept in deptList" :key="dept.deptId">
-            <el-card class="dept-item" :body-style="{ padding: '0px' }" shadow="hover" @click.native="selectDept(dept)">
+            <el-card class="dept-item" :body-style="{ padding: '0px' }" shadow="hover" @click.native="goToDetail(dept)">
               <div class="dept-image">
-                <img :src="dept.image || '@/assets/images/shop-default.png'" alt="门店图片">
+                <img :src="dept.image || defaultShopImage" alt="门店图片">
                 <div class="dept-status" :class="dept.status === '0' ? 'active' : 'inactive'">
                   {{ dept.status === '0' ? '营业中' : '休息中' }}
                 </div>
               </div>
               <div class="dept-info">
                 <h3>{{ dept.deptName }}</h3>
+
+                <!-- 评分显示 -->
+                <div class="dept-rating" v-if="dept.ratingStats">
+                  <el-rate v-model="dept.ratingStats.avgRating" disabled></el-rate>
+                  <span class="review-count">{{ dept.ratingStats.totalReviews }}条评价</span>
+                </div>
+                <div class="dept-rating" v-else>
+                  <el-rate v-model="defaultRating" disabled></el-rate>
+                  <span class="review-count">0条评价</span>
+                </div>
+
                 <p class="address">
                   <i class="el-icon-location"></i> {{ dept.address || '暂无地址' }}
                 </p>
@@ -31,7 +42,7 @@
                   <span class="car-space">
                     <i class="el-icon-s-grid"></i> {{ dept.carSpaceCount || 0 }}个车位
                   </span>
-                  <el-button type="primary" size="small" @click.stop="selectDept(dept)">去预约</el-button>
+                  <el-button type="primary" size="small" @click.stop="goToDetail(dept)">查看详情</el-button>
                 </div>
               </div>
             </el-card>
@@ -46,7 +57,7 @@
 </template>
 
 <script>
-import { getDeptList } from '@/api/booking/booking'
+import { getDeptList, getDeptRatingStats } from '@/api/booking/booking'
 import { mapActions } from 'vuex'
 
 export default {
@@ -54,7 +65,9 @@ export default {
   data() {
     return {
       loading: false,
-      deptList: []
+      deptList: [],
+      defaultShopImage: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg', // 使用Element的默认图片
+      defaultRating: 0
     }
   },
   created() {
@@ -68,6 +81,15 @@ export default {
       this.loading = true
       getDeptList({ status: 0 }).then(res => {
         this.deptList = res.data || []
+
+        // 为每个门店加载评分统计
+        this.deptList.forEach(dept => {
+          getDeptRatingStats(dept.deptId).then(stats => {
+            this.$set(dept, 'ratingStats', stats.data)
+          }).catch(() => {
+            this.$set(dept, 'ratingStats', { avgRating: 0, totalReviews: 0 })
+          })
+        })
       }).catch(err => {
         console.error('加载门店列表失败', err)
         this.$message.error('加载门店列表失败')
@@ -81,9 +103,19 @@ export default {
       this.loadDeptList()
     },
 
-    // 选择门店
+    // 跳转到门店详情
+    goToDetail(dept) {
+      this.$router.push({
+        path: `/booking/deptDetail/${dept.deptId}`,
+        query: {
+          deptName: dept.deptName,
+          address: dept.address
+        }
+      })
+    },
+
+    // 直接预约（如果需要）
     selectDept(dept) {
-      // 保存到 Vuex
       this.setCurrentDept({
         deptId: dept.deptId,
         deptName: dept.deptName,
@@ -91,8 +123,6 @@ export default {
         phone: dept.phone,
         carSpaceCount: dept.carSpaceCount
       })
-
-      // 跳转到预约日历页面
       this.$router.push('/booking/calendar')
     }
   }
@@ -157,6 +187,24 @@ export default {
   margin: 0 0 10px 0;
   font-size: 18px;
   color: #333;
+}
+
+/* 评分样式 */
+.dept-rating {
+  display: flex;
+  align-items: center;
+  margin: 8px 0;
+  gap: 10px;
+}
+
+.dept-rating .el-rate {
+  flex: 1;
+}
+
+.review-count {
+  color: #909399;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .dept-info p {

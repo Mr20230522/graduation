@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.booking.mapper.BookingDeptPaymentConfigMapper">
+
+    <resultMap type="BookingDeptPaymentConfig" id="BookingDeptPaymentConfigResult">
+        <id property="id" column="id"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="companyName" column="company_name"/>
+        <result property="companyId" column="company_id"/>
+        <!-- 支付宝配置 -->
+        <result property="alipayAppId" column="alipay_app_id"/>
+        <result property="alipayPublicKey" column="alipay_public_key"/>
+        <result property="alipayPrivateKey" column="alipay_private_key"/>
+        <result property="alipaySellerId" column="alipay_seller_id"/>
+        <!-- 微信支付配置 -->
+        <result property="wechatAppId" column="wechat_app_id"/>
+        <result property="wechatMchId" column="wechat_mch_id"/>
+        <result property="wechatApiKey" column="wechat_api_key"/>
+        <result property="wechatCertPath" column="wechat_cert_path"/>
+        <!-- 银行账户 -->
+        <result property="bankName" column="bank_name"/>
+        <result property="bankAccount" column="bank_account"/>
+        <result property="bankHolder" column="bank_holder"/>
+        <!-- 状态 -->
+        <result property="status" column="status"/>
+        <result property="isDefault" column="is_default"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectConfigVo">
+        SELECT id, dept_id, company_name, company_id,
+               alipay_app_id, alipay_public_key, alipay_private_key, alipay_seller_id,
+               wechat_app_id, wechat_mch_id, wechat_api_key, wechat_cert_path,
+               bank_name, bank_account, bank_holder,
+               status, is_default, create_time, update_time
+        FROM booking_dept_payment_config
+    </sql>
+
+    <select id="selectConfigById" parameterType="Long" resultMap="BookingDeptPaymentConfigResult">
+        <include refid="selectConfigVo"/>
+        WHERE id = #{id}
+    </select>
+
+    <select id="selectConfigByDeptId" parameterType="Long" resultMap="BookingDeptPaymentConfigResult">
+        <include refid="selectConfigVo"/>
+        WHERE dept_id = #{deptId} AND status = 1
+    </select>
+
+    <select id="selectDefaultConfig" resultMap="BookingDeptPaymentConfigResult">
+        <include refid="selectConfigVo"/>
+        WHERE is_default = 1 AND status = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectConfigList" parameterType="BookingDeptPaymentConfig" resultMap="BookingDeptPaymentConfigResult">
+        <include refid="selectConfigVo"/>
+        <where>
+            <if test="deptId != null">AND dept_id = #{deptId}</if>
+            <if test="companyName != null and companyName != ''">AND company_name LIKE CONCAT('%', #{companyName}, '%')</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="isDefault != null">AND is_default = #{isDefault}</if>
+        </where>
+        ORDER BY is_default DESC, create_time DESC
+    </select>
+
+    <insert id="insertConfig" parameterType="BookingDeptPaymentConfig" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO booking_dept_payment_config (
+            dept_id, company_name, company_id,
+            alipay_app_id, alipay_public_key, alipay_private_key, alipay_seller_id,
+            wechat_app_id, wechat_mch_id, wechat_api_key, wechat_cert_path,
+            bank_name, bank_account, bank_holder,
+            status, is_default, create_time, update_time
+        ) VALUES (
+                     #{deptId}, #{companyName}, #{companyId},
+                     #{alipayAppId}, #{alipayPublicKey}, #{alipayPrivateKey}, #{alipaySellerId},
+                     #{wechatAppId}, #{wechatMchId}, #{wechatApiKey}, #{wechatCertPath},
+                     #{bankName}, #{bankAccount}, #{bankHolder},
+                     #{status}, #{isDefault}, sysdate(), sysdate()
+                 )
+    </insert>
+
+    <update id="updateConfig" parameterType="BookingDeptPaymentConfig">
+        UPDATE booking_dept_payment_config
+        <set>
+            <if test="companyName != null">company_name = #{companyName},</if>
+            <if test="companyId != null">company_id = #{companyId},</if>
+            <if test="alipayAppId != null">alipay_app_id = #{alipayAppId},</if>
+            <if test="alipayPublicKey != null">alipay_public_key = #{alipayPublicKey},</if>
+            <if test="alipayPrivateKey != null">alipay_private_key = #{alipayPrivateKey},</if>
+            <if test="alipaySellerId != null">alipay_seller_id = #{alipaySellerId},</if>
+            <if test="wechatAppId != null">wechat_app_id = #{wechatAppId},</if>
+            <if test="wechatMchId != null">wechat_mch_id = #{wechatMchId},</if>
+            <if test="wechatApiKey != null">wechat_api_key = #{wechatApiKey},</if>
+            <if test="wechatCertPath != null">wechat_cert_path = #{wechatCertPath},</if>
+            <if test="bankName != null">bank_name = #{bankName},</if>
+            <if test="bankAccount != null">bank_account = #{bankAccount},</if>
+            <if test="bankHolder != null">bank_holder = #{bankHolder},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="isDefault != null">is_default = #{isDefault},</if>
+            update_time = sysdate()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <update id="clearDefaultFlag">
+        UPDATE booking_dept_payment_config SET is_default = 0 WHERE is_default = 1
+    </update>
+
+    <delete id="deleteConfigByIds" parameterType="String">
+        DELETE FROM booking_dept_payment_config WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.booking.mapper.BookingReviewMapper">
+
+    <resultMap type="BookingReview" id="BookingReviewResult">
+        <id property="id" column="id"/>
+        <result property="reviewNo" column="review_no"/>
+        <result property="bookingId" column="booking_id"/>
+        <result property="bookingNo" column="booking_no"/>
+        <result property="userId" column="user_id"/>
+        <result property="deptId" column="dept_id"/>
+        <result property="rating" column="rating"/>
+        <result property="content" column="content"/>
+        <result property="hasImage" column="has_image"/>
+        <result property="replyContent" column="reply_content"/>
+        <result property="replyTime" column="reply_time"/>
+        <result property="replyUserId" column="reply_user_id"/>
+        <result property="additionalContent" column="additional_content"/>
+        <result property="additionalTime" column="additional_time"/>
+        <result property="isAnonymous" column="is_anonymous"/>
+        <result property="status" column="status"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="userName" column="user_name"/>
+        <result property="deptName" column="dept_name"/>
+    </resultMap>
+
+    <resultMap type="DeptRatingStats" id="DeptRatingStatsResult">
+        <result property="deptId" column="dept_id"/>
+        <result property="avgRating" column="avg_rating"/>
+        <result property="totalReviews" column="total_reviews"/>
+        <result property="fiveStarCount" column="five_star_count"/>
+        <result property="fourStarCount" column="four_star_count"/>
+        <result property="threeStarCount" column="three_star_count"/>
+        <result property="twoStarCount" column="two_star_count"/>
+        <result property="oneStarCount" column="one_star_count"/>
+        <result property="imageReviews" column="image_reviews"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectReviewVo">
+        SELECT r.*, u.user_name, d.dept_name
+        FROM booking_review r
+                 LEFT JOIN sys_user u ON r.user_id = u.user_id
+                 LEFT JOIN sys_dept d ON r.dept_id = d.dept_id
+    </sql>
+
+    <select id="selectReviewList" parameterType="BookingReview" resultMap="BookingReviewResult">
+        <include refid="selectReviewVo"/>
+        <where>
+            <if test="deptId != null">AND r.dept_id = #{deptId}</if>
+            <if test="userId != null">AND r.user_id = #{userId}</if>
+            <if test="rating != null">AND r.rating = #{rating}</if>
+            <if test="status != null">AND r.status = #{status}</if>
+        </where>
+        ORDER BY r.create_time DESC
+    </select>
+
+    <select id="selectReviewById" parameterType="Long" resultMap="BookingReviewResult">
+        <include refid="selectReviewVo"/>
+        WHERE r.id = #{id}
+    </select>
+
+    <select id="selectReviewByBookingId" parameterType="Long" resultMap="BookingReviewResult">
+        <include refid="selectReviewVo"/>
+        WHERE r.booking_id = #{bookingId}
+    </select>
+
+    <select id="selectReviewsByDeptId" resultMap="BookingReviewResult">
+        <include refid="selectReviewVo"/>
+        WHERE r.dept_id = #{deptId} AND r.status = 1
+        ORDER BY r.create_time DESC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="countReviewsByDeptId" resultType="int">
+        SELECT COUNT(*) FROM booking_review
+        WHERE dept_id = #{deptId} AND status = 1
+    </select>
+
+    <insert id="insertReview" parameterType="BookingReview" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO booking_review (
+            review_no, booking_id, booking_no, user_id, dept_id,
+            rating, content, has_image, is_anonymous, status,
+            create_time, update_time
+        ) VALUES (
+                     #{reviewNo}, #{bookingId}, #{bookingNo}, #{userId}, #{deptId},
+                     #{rating}, #{content}, #{hasImage}, #{isAnonymous}, 1,
+                     sysdate(), sysdate()
+                 )
+    </insert>
+
+    <update id="updateReview" parameterType="BookingReview">
+        UPDATE booking_review
+        <set>
+            <if test="replyContent != null">reply_content = #{replyContent},</if>
+            <if test="replyTime != null">reply_time = #{replyTime},</if>
+            <if test="replyUserId != null">reply_user_id = #{replyUserId},</if>
+            <if test="additionalContent != null">additional_content = #{additionalContent},</if>
+            <if test="additionalTime != null">additional_time = #{additionalTime},</if>
+            <if test="status != null">status = #{status},</if>
+            update_time = sysdate()
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteReviewById" parameterType="Long">
+        DELETE FROM booking_review WHERE id = #{id}
+    </delete>
+
+    <select id="selectDeptRatingStats" parameterType="Long" resultMap="DeptRatingStatsResult">
+        SELECT * FROM dept_rating_stats WHERE dept_id = #{deptId}
+    </select>
+
+    <insert id="insertDeptRatingStats" parameterType="DeptRatingStats">
+        INSERT INTO dept_rating_stats (
+            dept_id, avg_rating, total_reviews, five_star_count,
+            four_star_count, three_star_count, two_star_count,
+            one_star_count, image_reviews, update_time
+        ) VALUES (
+                     #{deptId}, #{avgRating}, #{totalReviews}, #{fiveStarCount},
+                     #{fourStarCount}, #{threeStarCount}, #{twoStarCount},
+                     #{oneStarCount}, #{imageReviews}, sysdate()
+                 )
+    </insert>
+
+    <update id="updateDeptRatingStats" parameterType="DeptRatingStats">
+        UPDATE dept_rating_stats
+        SET avg_rating = #{avgRating},
+            total_reviews = #{totalReviews},
+            five_star_count = #{fiveStarCount},
+            four_star_count = #{fourStarCount},
+            three_star_count = #{threeStarCount},
+            two_star_count = #{twoStarCount},
+            one_star_count = #{oneStarCount},
+            image_reviews = #{imageReviews},
+            update_time = sysdate()
+        WHERE dept_id = #{deptId}
+    </update>
+</mapper>
