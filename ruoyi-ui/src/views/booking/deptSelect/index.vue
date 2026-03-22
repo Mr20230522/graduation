@@ -42,7 +42,7 @@
                   <span class="car-space">
                     <i class="el-icon-s-grid"></i> {{ dept.carSpaceCount || 0 }}个车位
                   </span>
-                  <el-button type="primary" size="small" @click.stop="goToDetail(dept)">查看详情</el-button>
+                  <el-button type="primary" size="small" @click.stop="selectDept(dept)">立即预约</el-button>
                 </div>
               </div>
             </el-card>
@@ -66,7 +66,7 @@ export default {
     return {
       loading: false,
       deptList: [],
-      defaultShopImage: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg', // 使用Element的默认图片
+      defaultShopImage: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg',
       defaultRating: 0
     }
   },
@@ -109,19 +109,20 @@ export default {
         path: `/booking/deptDetail/${dept.deptId}`,
         query: {
           deptName: dept.deptName,
-          address: dept.address
+          address: dept.address,
+          phone: dept.phone
         }
       })
     },
 
-    // 直接预约（如果需要）
+    // 立即预约 - 存门店到 Vuex 并跳转
     selectDept(dept) {
       this.setCurrentDept({
         deptId: dept.deptId,
         deptName: dept.deptName,
         address: dept.address,
         phone: dept.phone,
-        carSpaceCount: dept.carSpaceCount
+        carSpaceCount: dept.carSpaceCount || 0
       })
       this.$router.push('/booking/calendar')
     }
@@ -189,7 +190,6 @@ export default {
   color: #333;
 }
 
-/* 评分样式 */
 .dept-rating {
   display: flex;
   align-items: center;

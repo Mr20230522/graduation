@@ -91,7 +91,7 @@ export default {
     },
     isFirstView() {
       try {
-        return this.selectedTag.fullPath === '/index' || this.selectedTag.fullPath === this.visitedViews[1].fullPath
+        return this.selectedTag.fullPath === '/index.vue' || this.selectedTag.fullPath === this.visitedViews[1].fullPath
       } catch (err) {
         return false
       }

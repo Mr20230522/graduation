@@ -120,6 +120,7 @@
 <script>
 import { getDeptDetail } from '@/api/booking/booking'
 import { getDeptReviews, getDeptRatingStats } from '@/api/booking/booking'
+import { mapActions } from 'vuex'
 
 export default {
   name: 'DeptDetail',
@@ -148,13 +149,15 @@ export default {
     this.loadReviews()
   },
   methods: {
+    ...mapActions('booking', ['setCurrentDept']),
+
     // 加载门店信息
     loadDeptInfo() {
-      // 这里需要实现获取门店详情的接口
-      // 暂时从路由参数获取
       this.deptInfo = {
+        deptId: this.deptId,
         deptName: this.$route.query.deptName || '门店详情',
-        address: this.$route.query.address || ''
+        address: this.$route.query.address || '',
+        phone: this.$route.query.phone || ''
       }
 
       // 获取评分统计
@@ -177,7 +180,6 @@ export default {
     // 筛选变化
     handleFilterChange() {
       this.pageNum = 1
-      // 这里可以根据筛选类型调用不同的接口
       this.loadReviews()
     },
 
@@ -221,15 +223,15 @@ export default {
       return `${year}-${month}-${day}`
     },
 
-    // 去预约
+    // 去预约 - 存门店到 Vuex
     goToBook() {
-      this.$router.push({
-        path: '/booking/calendar',
-        query: {
-          deptId: this.deptId,
-          deptName: this.deptInfo.deptName
-        }
+      this.setCurrentDept({
+        deptId: this.deptInfo.deptId,
+        deptName: this.deptInfo.deptName,
+        address: this.deptInfo.address,
+        phone: this.deptInfo.phone
       })
+      this.$router.push('/booking/calendar')
     }
   }
 }

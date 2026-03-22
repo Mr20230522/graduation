@@ -177,10 +177,19 @@ export const constantRoutes = [
           icon: 'shop',
           hidden: true  // 不在菜单显示
         }
+      },
+      {
+        path: 'myConsumption',
+        component: () => import('@/views/booking/myConsumption'),
+        name: 'myConsumption',
+        meta: {
+          title: '消费一览',
+          icon: 'shop',
+          hidden: false  // 不在菜单显示
+        }
       }
     ]
   },
-  // ==================== 老板管理（目录） ====================
   // ==================== 老板管理（目录） ====================
   {
     path: '/boss',
@@ -258,7 +267,7 @@ export const dynamicRoutes = [
     permissions: ['system:dict:list'],
     children: [
       {
-        path: 'index/:dictId(\\d+)',
+        path: 'index.vue/:dictId(\\d+)',
         component: () => import('@/views/system/dict/data'),
         name: 'Data',
         meta: { title: '字典数据', activeMenu: '/system/dict' }
@@ -272,7 +281,7 @@ export const dynamicRoutes = [
     permissions: ['monitor:job:list'],
     children: [
       {
-        path: 'index/:jobId(\\d+)',
+        path: 'index.vue/:jobId(\\d+)',
         component: () => import('@/views/monitor/job/log'),
         name: 'JobLog',
         meta: { title: '调度日志', activeMenu: '/monitor/job' }
@@ -286,7 +295,7 @@ export const dynamicRoutes = [
     permissions: ['tool:gen:edit'],
     children: [
       {
-        path: 'index/:tableId(\\d+)',
+        path: 'index.vue/:tableId(\\d+)',
         component: () => import('@/views/tool/gen/editTable'),
         name: 'GenEdit',
         meta: { title: '修改生成配置', activeMenu: '/tool/gen' }

@@ -299,6 +299,11 @@ export default {
     }
   },
   created() {
+    // 如果没有门店，跳回选择页
+    if (!this.currentDept) {
+      this.$router.push('/booking/deptSelect')
+      return
+    }
     this.startDailyRefresh()
   },
   beforeDestroy() {
