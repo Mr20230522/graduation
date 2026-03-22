@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.booking.mapper.BossMapper">
+
+    <!-- 统计数据 -->
+    <select id="getStatistics" resultType="com.ruoyi.booking.domain.BossStatisticsVO">
+        SELECT
+            COALESCE(SUM(cb.amount), 0) as totalRevenue,
+            COUNT(DISTINCT cb.booking_no) as totalOrders,
+            (SELECT COUNT(*) FROM booking_review br WHERE br.dept_id = #{deptId} AND br.status = 1) as totalReviews,
+            COALESCE(AVG(br.rating), 0) as avgRating
+        FROM car_booking cb
+                 LEFT JOIN booking_review br ON cb.booking_no = br.booking_no
+        WHERE cb.dept_id = #{deptId}
+          AND cb.status = 2
+          AND cb.pay_status = 2
+    </select>
+
+    <!-- 营收趋势 -->
+    <select id="getRevenueTrend" resultType="com.ruoyi.booking.domain.BossRevenueVO">
+        SELECT
+            DATE(cb.create_time) as date,
+            COALESCE(SUM(cb.amount), 0) as revenue,
+            COUNT(cb.booking_no) as orderCount
+        FROM car_booking cb
+        WHERE cb.dept_id = #{deptId}
+          AND cb.status = 2
+          AND cb.pay_status = 2
+          AND cb.create_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY DATE(cb.create_time)
+        ORDER BY date ASC
+    </select>
+
+    <!-- 评价列表 -->
+    <select id="getReviewList" resultType="java.util.HashMap">
+        SELECT
+        br.id as reviewId,
+        br.booking_no as bookingNo,
+        br.rating,
+        br.content,
+        br.has_image as hasImage,
+        br.reply_content as replyContent,
+        br.reply_time as replyTime,
+        br.create_time as createTime,
+        br.is_anonymous as isAnonymous,
+        u.nick_name as userName,
+        u.avatar,
+        cb.car_number as carNumber,
+        GROUP_CONCAT(bri.image_url) as images
+        FROM booking_review br
+        LEFT JOIN sys_user u ON br.user_id = u.user_id
+        LEFT JOIN car_booking cb ON br.booking_no = cb.booking_no
+        LEFT JOIN booking_review_image bri ON br.id = bri.review_id
+        WHERE br.dept_id = #{deptId}
+        AND br.status = 1
+        <if test="rating != null and rating != ''">
+            AND br.rating = #{rating}
+        </if>
+        <if test="hasImage != null and hasImage != ''">
+            AND br.has_image = #{hasImage}
+        </if>
+        GROUP BY br.id
+        ORDER BY br.create_time DESC
+    </select>
+
+    <!-- 回复评价 -->
+    <update id="replyReview">
+        UPDATE booking_review
+        SET reply_content = #{replyContent},
+            reply_time = NOW(),
+            reply_user_id = #{replyUserId}
+        WHERE id = #{reviewId}
+    </update>
+
+    <!-- 获取门店排班 - 使用 DeptSchedule 实体类 -->
+    <select id="getSchedule" resultType="com.ruoyi.booking.domain.DeptSchedule">
+        SELECT
+            id,
+            dept_id as deptId,
+            work_date as workDate,
+            open_time as openTime,
+            close_time as closeTime,
+            slot_minutes as slotMinutes,
+            car_spaces as carSpaces,
+            status
+        FROM dept_schedule
+        WHERE dept_id = #{deptId}
+          AND work_date >= CURDATE()
+        ORDER BY work_date ASC
+            LIMIT 7
+    </select>
+
+    <!-- 删除排班 -->
+    <delete id="deleteSchedule">
+        DELETE FROM dept_schedule
+        WHERE dept_id = #{deptId}
+          AND work_date >= CURDATE()
+    </delete>
+
+    <!-- 插入排班 -->
+    <insert id="insertSchedule">
+        INSERT INTO dept_schedule (
+            dept_id,
+            work_date,
+            open_time,
+            close_time,
+            slot_minutes,
+            car_spaces,
+            status,
+            create_time
+        ) VALUES (
+                     #{deptId},
+                     #{workDate},
+                     #{openTime},
+                     #{closeTime},
+                     #{slotMinutes},
+                     #{carSpaces},
+                     #{status},
+                     NOW()
+                 )
+    </insert>
+
+    <!-- 获取车位列表 - 使用 DeptCarSpace 实体类 -->
+    <select id="getCarSpaces" resultType="com.ruoyi.booking.domain.DeptCarSpace">
+        SELECT
+            id,
+            dept_id as deptId,
+            space_no as spaceNo,
+            space_name as spaceName,
+            status
+        FROM dept_car_space
+        WHERE dept_id = #{deptId}
+        ORDER BY space_no
+    </select>
+
+    <!-- 更新车位状态 -->
+    <update id="updateCarSpace">
+        UPDATE dept_car_space
+        SET status = #{status},
+            update_time = NOW()
+        WHERE dept_id = #{deptId}
+          AND space_no = #{spaceNo}
+    </update>
+
+</mapper>

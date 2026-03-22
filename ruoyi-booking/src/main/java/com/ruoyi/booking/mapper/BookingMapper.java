@@ -6,6 +6,7 @@ import com.ruoyi.booking.domain.DeptSchedule;
 import org.apache.ibatis.annotations.Param;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 public interface BookingMapper {
 
@@ -59,4 +60,8 @@ public interface BookingMapper {
                                          @Param("offset") int offset,
                                          @Param("pageSize") int pageSize);
     int countMyHistory(@Param("userId") Long userId);
+
+    /**
+     * 获取当前用户的消费记录
+     */
 }

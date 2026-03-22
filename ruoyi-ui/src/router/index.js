@@ -179,6 +179,45 @@ export const constantRoutes = [
         }
       }
     ]
+  },
+  // ==================== 老板管理（目录） ====================
+  // ==================== 老板管理（目录） ====================
+  {
+    path: '/boss',
+    component: Layout,
+    meta: {
+      title: '老板管理',
+      icon: 'el-icon-s-custom'
+    },
+    children: [
+      {
+        path: 'revenue',
+        component: () => import('@/views/boss/revenue'),
+        name: 'BossRevenue',
+        meta: {
+          title: '营收看板',
+          icon: 'el-icon-data-line'
+        }
+      },
+      {
+        path: 'review',
+        component: () => import('@/views/boss/review'),
+        name: 'BossReview',
+        meta: {
+          title: '评价管理',
+          icon: 'el-icon-star-on'
+        }
+      },
+      {
+        path: 'setting',
+        component: () => import('@/views/boss/setting'),
+        name: 'BossSetting',
+        meta: {
+          title: '门店设置',
+          icon: 'el-icon-setting'
+        }
+      }
+    ]
   }
 ]
 

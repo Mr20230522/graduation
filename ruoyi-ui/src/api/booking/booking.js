@@ -19,7 +19,7 @@ export function createBooking(data, orderNo) {
   return request({
     url: '/booking/create',
     method: 'post',
-    params: orderNo ? { orderNo } : {},  // 如果有订单号就传
+    params: orderNo ? { orderNo } : {},
     data: data
   })
 }
@@ -100,9 +100,9 @@ export function cancelOrder(orderNo) {
 /** 根据套餐分钟数获取价格 */
 export function getComboPrice(minutes) {
   const priceMap = {
-    30: 30,   // 标准洗车
-    60: 80,   // 精洗+打蜡
-    90: 120   // 全套护理
+    30: 30,
+    60: 80,
+    90: 120
   }
   return priceMap[minutes] || 30
 }
@@ -116,7 +116,6 @@ export function getComboName(minutes) {
   }
   return nameMap[minutes] || '未知套餐'
 }
-
 
 /** 获取门店列表 */
 export function getDeptList(params) {
@@ -190,5 +189,93 @@ export function getMyReviews(pageNum, pageSize) {
     url: '/booking/review/my',
     method: 'get',
     params: { pageNum, pageSize }
+  })
+}
+
+// ==================== 老板管理接口 ====================
+
+/** 获取当前老板的门店信息 */
+export function getDeptInfo() {
+  return request({
+    url: '/boss/deptInfo',
+    method: 'get'
+  })
+}
+
+/** 获取门店统计数据（总营收、总订单数、总评价数、平均评分） */
+export function getStatistics() {
+  return request({
+    url: '/boss/statistics',
+    method: 'get'
+  })
+}
+
+/** 获取营收趋势（近7天/30天） */
+export function getRevenueTrend(days) {
+  return request({
+    url: '/boss/revenueTrend',
+    method: 'get',
+    params: { days }
+  })
+}
+
+/** 获取评价列表（老板视角） */
+export function getReviewList(params) {
+  return request({
+    url: '/boss/reviewList',
+    method: 'get',
+    params
+  })
+}
+
+/** 回复评价（老板视角） */
+export function bossReplyReview(data) {
+  return request({
+    url: '/boss/replyReview',
+    method: 'post',
+    data
+  })
+}
+
+/** 更新门店信息（老板视角） */
+export function updateDept(data) {
+  return request({
+    url: '/boss/updateDept',
+    method: 'put',
+    data
+  })
+}
+
+/** 获取门店排班信息（老板视角） */
+export function getSchedule() {
+  return request({
+    url: '/boss/schedule',
+    method: 'get'
+  })
+}
+
+/** 更新门店排班（老板视角） */
+export function updateSchedule(data) {
+  return request({
+    url: '/boss/updateSchedule',
+    method: 'post',
+    data
+  })
+}
+
+/** 获取车位列表（老板视角） */
+export function getCarSpaces() {
+  return request({
+    url: '/boss/carSpaces',
+    method: 'get'
+  })
+}
+
+/** 更新车位状态（老板视角） */
+export function updateCarSpace(data) {
+  return request({
+    url: '/boss/updateCarSpace',
+    method: 'put',
+    data
   })
 }
