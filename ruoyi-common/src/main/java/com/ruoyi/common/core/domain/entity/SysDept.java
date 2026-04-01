@@ -79,6 +79,88 @@ public class SysDept extends BaseEntity {
      */
     private List<SysDept> children = new ArrayList<SysDept>();
 
+    // 在 carSpaceCount 字段后面添加
+
+    /**
+     * 门店图片地址
+     */
+    private String imageUrl;
+
+    /**
+     * 图片类型（0系统默认 1自定义）
+     */
+    private String imageType;
+
+    /**
+     * 支付宝应用ID
+     */
+    private String alipayAppId;
+
+    /**
+     * 支付宝商户私钥
+     */
+    private String alipayPrivateKey;
+
+    /**
+     * 支付宝公钥
+     */
+    private String alipayPublicKey;
+
+    /**
+     * 支付宝网关地址
+     */
+    private String alipayGateway;
+
+    // getter/setter
+    public String getAlipayAppId() {
+        return alipayAppId;
+    }
+
+    public void setAlipayAppId(String alipayAppId) {
+        this.alipayAppId = alipayAppId;
+    }
+
+    public String getAlipayPrivateKey() {
+        return alipayPrivateKey;
+    }
+
+    public void setAlipayPrivateKey(String alipayPrivateKey) {
+        this.alipayPrivateKey = alipayPrivateKey;
+    }
+
+    public String getAlipayPublicKey() {
+        return alipayPublicKey;
+    }
+
+    public void setAlipayPublicKey(String alipayPublicKey) {
+        this.alipayPublicKey = alipayPublicKey;
+    }
+
+    public String getAlipayGateway() {
+        return alipayGateway;
+    }
+
+    public void setAlipayGateway(String alipayGateway) {
+        this.alipayGateway = alipayGateway;
+    }
+
+    // 添加 getter 和 setter 方法
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
+
+    public String getImageType() {
+        return imageType;
+    }
+
+    public void setImageType(String imageType) {
+        this.imageType = imageType;
+    }
+
     /**
      * 门店详细地址
      */
@@ -269,6 +351,8 @@ public class SysDept extends BaseEntity {
                 .append("longitude", getLongitude())
                 .append("latitude", getLatitude())
                 .append("license", getLicense())
+                .append("imageUrl", getImageUrl())
+                .append("imageType", getImageType())
                 .toString();
     }
 }

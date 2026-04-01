@@ -1,17 +1,24 @@
 package com.ruoyi.booking.service.impl;
 
+import com.alipay.api.AlipayApiException;
+import com.alipay.api.AlipayClient;
+import com.alipay.api.DefaultAlipayClient;
+import com.alipay.api.request.AlipayTradePagePayRequest;
+import com.alipay.api.request.AlipayTradeQueryRequest;
+import com.alipay.api.response.AlipayTradePagePayResponse;
+import com.alipay.api.response.AlipayTradeQueryResponse;
 import com.ruoyi.booking.domain.BookingOrder;
-import com.ruoyi.booking.domain.BookingPaymentRecord;
 import com.ruoyi.booking.domain.CarBooking;
 import com.ruoyi.booking.domain.dto.CreateOrderDTO;
 import com.ruoyi.booking.domain.dto.PayDTO;
-import com.ruoyi.booking.mapper.BookingOrderMapper;
-import com.ruoyi.booking.mapper.BookingPaymentRecordMapper;
 import com.ruoyi.booking.mapper.BookingMapper;
+import com.ruoyi.booking.mapper.BookingOrderMapper;
 import com.ruoyi.booking.service.IBookingOrderService;
+import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.utils.SecurityUtils;
-import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.system.service.ISysDeptService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +33,20 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     private BookingOrderMapper orderMapper;
 
     @Autowired
-    private BookingPaymentRecordMapper paymentRecordMapper;
+    private BookingMapper bookingMapper;
 
     @Autowired
-    private BookingMapper bookingMapper;
+    private ISysDeptService deptService;
+
+    @Value("${ruoyi.profile}")
+    private String profile;
 
     // 套餐价格映射
     private static final Map<Integer, BigDecimal> COMBO_PRICE = new HashMap<>();
     static {
-        COMBO_PRICE.put(30, new BigDecimal(30));   // 标准洗车
-        COMBO_PRICE.put(60, new BigDecimal(80));   // 精洗+打蜡
-        COMBO_PRICE.put(90, new BigDecimal(120));  // 全套护理
+        COMBO_PRICE.put(30, new BigDecimal(30));
+        COMBO_PRICE.put(60, new BigDecimal(80));
+        COMBO_PRICE.put(90, new BigDecimal(120));
     }
 
     @Override
@@ -44,21 +54,16 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     public Map<String, Object> createOrder(CreateOrderDTO dto) {
         Map<String, Object> result = new HashMap<>();
 
-        // 生成订单号
         String orderNo = generateOrderNo();
-
-        // 计算金额
         BigDecimal amount = COMBO_PRICE.get(dto.getComboMinutes());
         if (amount == null) {
             amount = new BigDecimal(30);
         }
 
-        // 设置过期时间（15分钟）
         Calendar cal = Calendar.getInstance();
         cal.add(Calendar.MINUTE, 15);
         Date expireTime = cal.getTime();
 
-        // 创建订单
         BookingOrder order = new BookingOrder();
         order.setOrderNo(orderNo);
         order.setUserId(SecurityUtils.getUserId());
@@ -69,8 +74,15 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
                 new SimpleDateFormat("yyyy-MM-dd").format(dto.getWorkDate()),
                 dto.getSlot(),
                 dto.getSpaceNo()));
-        order.setStatus(0);  // 待支付
+        order.setStatus(0);
         order.setExpireTime(expireTime);
+        order.setCarNumber(dto.getCarNumber());
+        order.setCarModel(dto.getCarModel());
+        order.setCarColor(dto.getCarColor());
+        order.setWorkDate(dto.getWorkDate());
+        order.setSlot(dto.getSlot());
+        order.setSpaceNo(dto.getSpaceNo());
+        order.setComboMinutes(dto.getComboMinutes());
 
         orderMapper.insertBookingOrder(order);
 
@@ -84,36 +96,71 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     public Map<String, Object> pay(PayDTO dto) {
         Map<String, Object> result = new HashMap<>();
 
-        // 获取订单
         BookingOrder order = orderMapper.selectBookingOrderByNo(dto.getOrderNo());
         if (order == null) {
             throw new RuntimeException("订单不存在");
         }
 
-        // 检查订单状态
         if (order.getStatus() != 0) {
             throw new RuntimeException("订单状态错误");
         }
 
-        // 检查是否过期
         if (order.getExpireTime().before(new Date())) {
-            orderMapper.updateStatusByOrderNo(dto.getOrderNo(), 3, null); // 3-已取消
+            orderMapper.updateStatusByOrderNo(dto.getOrderNo(), 3, null);
             throw new RuntimeException("订单已过期");
         }
 
-        // TODO: 调用第三方支付接口
-        // 这里模拟支付成功
-        if ("alipay".equals(dto.getPayMethod()) || "wechat".equals(dto.getPayMethod())) {
-            // 模拟返回二维码
-            result.put("qrCode", "https://example.com/qrcode/" + dto.getOrderNo());
-        } else {
-            // 模拟返回跳转链接
-            result.put("payUrl", "https://pay.example.com/" + dto.getOrderNo());
+        SysDept dept = deptService.selectDeptById(order.getDeptId());
+
+        System.out.println("========== 支付宝配置调试 ==========");
+        System.out.println("门店ID: " + dept.getDeptId());
+        System.out.println("门店名称: " + dept.getDeptName());
+        System.out.println("alipayAppId: " + dept.getAlipayAppId());
+        System.out.println("alipayGateway: " + dept.getAlipayGateway());
+        System.out.println("===================================");
+
+        if (dept == null || dept.getAlipayAppId() == null) {
+            throw new RuntimeException("门店未配置支付宝支付");
         }
 
-        // 更新支付方式
+        try {
+            AlipayClient alipayClient = new DefaultAlipayClient(
+                    dept.getAlipayGateway(),
+                    dept.getAlipayAppId(),
+                    dept.getAlipayPrivateKey(),
+                    "json",
+                    "UTF-8",
+                    dept.getAlipayPublicKey(),
+                    "RSA2"
+            );
+
+            AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
+            request.setNotifyUrl("http://localhost:8080/booking/order/callback/alipay");
+            request.setReturnUrl("http://localhost:8080/booking/result");
+
+            request.setBizContent("{" +
+                    "\"out_trade_no\":\"" + order.getOrderNo() + "\"," +
+                    "\"total_amount\":\"" + order.getAmount() + "\"," +
+                    "\"subject\":\"" + order.getSubject() + "\"," +
+                    "\"product_code\":\"FAST_INSTANT_TRADE_PAY\"" +
+                    "}");
+
+            AlipayTradePagePayResponse response = alipayClient.pageExecute(request);
+
+            if (response.isSuccess()) {
+                result.put("payForm", response.getBody());
+                result.put("payUrl", response.getBody());
+            } else {
+                throw new RuntimeException("支付宝支付失败：" + response.getMsg());
+            }
+
+        } catch (AlipayApiException e) {
+            e.printStackTrace();
+            throw new RuntimeException("支付宝支付异常：" + e.getMessage());
+        }
+
+        order.setStatus(1);
         order.setPayMethod(dto.getPayMethod());
-        order.setStatus(1); // 支付中
         orderMapper.updateBookingOrder(order);
 
         return result;
@@ -122,26 +169,67 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     @Override
     @Transactional
     public String handlePayCallback(String paymentMethod, String callbackData) {
-        // TODO: 解析回调数据，验证签名
-        // 这里简化处理，假设支付成功
+        Map<String, String> params = parseCallbackData(callbackData);
+        String orderNo = params.get("out_trade_no");
+        String tradeStatus = params.get("trade_status");
 
-        // 从回调数据中获取订单号
-        String orderNo = extractOrderNoFromCallback(callbackData);
-        String transactionId = extractTransactionIdFromCallback(callbackData);
+        System.out.println("========== 支付宝回调 ==========");
+        System.out.println("订单号: " + orderNo);
+        System.out.println("支付状态: " + tradeStatus);
+        System.out.println("=================================");
 
-        // 更新订单状态
-        orderMapper.updateStatusByOrderNo(orderNo, 2, new Date()); // 2-已支付
+        if ("TRADE_SUCCESS".equals(tradeStatus) || "TRADE_FINISHED".equals(tradeStatus)) {
+            // 更新订单状态
+            orderMapper.updateStatusByOrderNo(orderNo, 2, new Date());
 
-        // 记录支付记录
-        BookingPaymentRecord record = new BookingPaymentRecord();
-        record.setOrderNo(orderNo);
-        record.setTransactionId(transactionId);
-        record.setPayMethod(paymentMethod);
-        record.setAmount(getAmountFromOrder(orderNo));
-        record.setStatus(1); // 成功
-        record.setCallbackData(callbackData);
-        record.setPayTime(new Date());
-        paymentRecordMapper.insertPaymentRecord(record);
+            // 获取订单信息
+            BookingOrder order = orderMapper.selectBookingOrderByNo(orderNo);
+
+            if (order == null) {
+                System.out.println("订单不存在: " + orderNo);
+                return "success";
+            }
+
+            // 创建预约记录（如果还没有创建）
+            if (order.getBookingNo() == null) {
+                try {
+                    CarBooking booking = new CarBooking();
+                    booking.setUserId(order.getUserId());
+                    booking.setDeptId(order.getDeptId());
+                    booking.setSpaceNo(order.getSpaceNo());
+                    booking.setWorkDate(order.getWorkDate());
+
+                    Date startTime = parseStartTime(order.getWorkDate(), order.getSlot());
+                    booking.setStartTime(startTime);
+                    booking.setEndTime(calculateEndTime(startTime, order.getComboMinutes()));
+
+                    booking.setCarNumber(order.getCarNumber());
+                    booking.setCarModel(order.getCarModel());
+                    booking.setCarColor(order.getCarColor());
+                    booking.setComboMinutes(order.getComboMinutes());
+                    booking.setComboName(getComboName(order.getComboMinutes()));
+                    booking.setStatus(0);
+
+                    booking.setBookingNo(generateBookingNo());
+                    booking.setCode(generateCode());
+                    booking.setCreateBy(String.valueOf(order.getUserId()));
+
+                    bookingMapper.insertBooking(booking);
+
+                    order.setBookingId(booking.getId());
+                    order.setBookingNo(booking.getBookingNo());
+                    orderMapper.updateBookingOrder(order);
+
+                    System.out.println("✅ 预约创建成功！预约单号: " + booking.getBookingNo());
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    System.out.println("❌ 创建预约失败: " + e.getMessage());
+                }
+            } else {
+                System.out.println("预约已存在，跳过创建: " + order.getBookingNo());
+            }
+        }
 
         return "success";
     }
@@ -157,14 +245,38 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
             return result;
         }
 
+        if (order.getStatus() == 1) {
+            try {
+                SysDept dept = deptService.selectDeptById(order.getDeptId());
+                if (dept != null && dept.getAlipayAppId() != null) {
+                    AlipayClient alipayClient = new DefaultAlipayClient(
+                            dept.getAlipayGateway(),
+                            dept.getAlipayAppId(),
+                            dept.getAlipayPrivateKey(),
+                            "json",
+                            "UTF-8",
+                            dept.getAlipayPublicKey(),
+                            "RSA2"
+                    );
+
+                    AlipayTradeQueryRequest request = new AlipayTradeQueryRequest();
+                    request.setBizContent("{\"out_trade_no\":\"" + orderNo + "\"}");
+
+                    AlipayTradeQueryResponse response = alipayClient.execute(request);
+
+                    if (response.isSuccess() && "TRADE_SUCCESS".equals(response.getTradeStatus())) {
+                        orderMapper.updateStatusByOrderNo(orderNo, 2, new Date());
+                        order.setStatus(2);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
         result.put("status", order.getStatus());
         result.put("payTime", order.getPayTime());
         result.put("amount", order.getAmount());
-
-        // 如果已支付，查询是否已创建预约
-        if (order.getStatus() == 2 && order.getBookingNo() != null) {
-            result.put("bookingNo", order.getBookingNo());
-        }
 
         return result;
     }
@@ -175,9 +287,7 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     }
 
     @Override
-    @Transactional
     public void processExpiredOrders() {
-        // 查询过期订单（待支付且超过过期时间）
         BookingOrder query = new BookingOrder();
         query.setStatus(0);
         List<BookingOrder> orders = orderMapper.selectBookingOrderList(query);
@@ -197,18 +307,55 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
         return "ORD" + sdf.format(new Date()) + String.format("%04d", new Random().nextInt(10000));
     }
 
-    private String extractOrderNoFromCallback(String callbackData) {
-        // TODO: 实际解析逻辑
-        return "";
+    private String generateBookingNo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+        return "BK" + sdf.format(new Date()) + String.format("%04d", new Random().nextInt(10000));
     }
 
-    private String extractTransactionIdFromCallback(String callbackData) {
-        // TODO: 实际解析逻辑
-        return "";
+    private String generateCode() {
+        Random random = new Random();
+        return String.format("%06d", random.nextInt(1000000));
     }
 
-    private BigDecimal getAmountFromOrder(String orderNo) {
-        BookingOrder order = orderMapper.selectBookingOrderByNo(orderNo);
-        return order != null ? order.getAmount() : BigDecimal.ZERO;
+    private Date parseStartTime(Date workDate, String slot) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(workDate);
+            return sdf.parse(dateStr + " " + slot + ":00");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Date();
+        }
+    }
+
+    private Date calculateEndTime(Date startTime, int minutes) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(startTime);
+        cal.add(Calendar.MINUTE, minutes);
+        return cal.getTime();
+    }
+
+    private String getComboName(Integer minutes) {
+        if (minutes == null) return "标准洗车";
+        if (minutes == 30) return "标准洗车";
+        if (minutes == 60) return "精洗+打蜡";
+        if (minutes == 90) return "全套护理";
+        return "洗车服务";
+    }
+
+    private Map<String, String> parseCallbackData(String callbackData) {
+        Map<String, String> result = new HashMap<>();
+        try {
+            String[] pairs = callbackData.split("&");
+            for (String pair : pairs) {
+                String[] kv = pair.split("=");
+                if (kv.length == 2) {
+                    result.put(kv[0], kv[1]);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 }

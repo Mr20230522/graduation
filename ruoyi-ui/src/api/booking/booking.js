@@ -279,3 +279,18 @@ export function updateCarSpace(data) {
     data
   })
 }
+
+
+// 上传门店图片（不需要传deptId，后端自动识别当前登录老板的门店）
+export function uploadDeptImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/system/dept/uploadImage',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}

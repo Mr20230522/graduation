@@ -1,18 +1,14 @@
 package com.ruoyi.web.controller.system;
 
+import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.commons.lang3.ArrayUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.constant.UserConstants;
 import com.ruoyi.common.core.controller.BaseController;
@@ -21,10 +17,11 @@ import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.system.service.ISysDeptService;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 部门信息
- * 
+ *
  * @author ruoyi
  */
 @RestController
@@ -33,6 +30,9 @@ public class SysDeptController extends BaseController
 {
     @Autowired
     private ISysDeptService deptService;
+
+    @Value("${ruoyi.profile}")
+    private String profile;
 
     /**
      * 获取部门列表
@@ -128,5 +128,51 @@ public class SysDeptController extends BaseController
         }
         deptService.checkDeptDataScope(deptId);
         return toAjax(deptService.deleteDeptById(deptId));
+    }
+
+    /**
+     * 上传门店图片（自动识别当前登录老板的门店）
+     */
+    @PreAuthorize("@ss.hasPermi('system:dept:edit')")
+    @Log(title = "部门管理", businessType = BusinessType.UPDATE)
+    @PostMapping("/uploadImage")
+    public AjaxResult uploadImage(@RequestParam("file") MultipartFile file) {
+        try {
+            // 1. 获取当前登录用户的门店信息
+            SysDept dept = deptService.selectDeptByUserId(getUserId());
+            if (dept == null) {
+                return error("未找到您的门店信息");
+            }
+
+            // 2. 检查文件类型
+            String originalFilename = file.getOriginalFilename();
+            String extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            List<String> allowedExtensions = Arrays.asList(".jpg", ".jpeg", ".png", ".gif");
+            if (!allowedExtensions.contains(extension.toLowerCase())) {
+                return error("只支持jpg、jpeg、png、gif格式的图片");
+            }
+
+            // 3. 用门店ID命名图片
+            String fileName = dept.getDeptId() + extension;
+            String filePath = profile + "/dept/" + fileName;
+
+            // 4. 保存文件
+            File dest = new File(filePath);
+            if (!dest.getParentFile().exists()) {
+                dest.getParentFile().mkdirs();
+            }
+            file.transferTo(dest);
+
+            // 5. 更新数据库
+            String imageUrl = "/dept/" + fileName;
+            dept.setImageUrl(imageUrl);
+            dept.setImageType("1");
+            deptService.updateDept(dept);
+
+            return success(imageUrl);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return error("图片上传失败：" + e.getMessage());
+        }
     }
 }

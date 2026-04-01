@@ -14,7 +14,8 @@
           <el-col :span="8" v-for="dept in deptList" :key="dept.deptId">
             <el-card class="dept-item" :body-style="{ padding: '0px' }" shadow="hover" @click.native="goToDetail(dept)">
               <div class="dept-image">
-                <img :src="dept.image || defaultShopImage" alt="门店图片">
+                <!-- 修改点：图片地址改为动态获取 -->
+                <img :src="getDeptImageUrl(dept)" :alt="dept.deptName" @error="handleImageError(dept)">
                 <div class="dept-status" :class="dept.status === '0' ? 'active' : 'inactive'">
                   {{ dept.status === '0' ? '营业中' : '休息中' }}
                 </div>
@@ -66,7 +67,10 @@ export default {
     return {
       loading: false,
       deptList: [],
-      defaultShopImage: 'https://cube.elemecdn.com/6/94/4d3ea53c084bad6931a56d5158a48jpeg.jpeg',
+      // 使用后端地址，不是 8000 端口
+      imageBaseUrl: process.env.VUE_APP_BASE_API + '/profile',
+      // 默认图片路径
+      defaultShopImage: '/dept/default.jpg',
       defaultRating: 0
     }
   },
@@ -75,6 +79,31 @@ export default {
   },
   methods: {
     ...mapActions('booking', ['setCurrentDept']),
+
+    // 获取门店图片完整URL
+    getDeptImageUrl(dept) {
+      // 如果数据库有图片地址，直接使用
+      if (dept.imageUrl) {
+        // 如果地址以 http 开头，直接返回
+        if (dept.imageUrl.startsWith('http')) {
+          return dept.imageUrl
+        }
+        // 否则拼接图片服务器地址
+        return this.imageBaseUrl + dept.imageUrl
+      }
+      // 没有图片地址，使用默认图片
+      return this.imageBaseUrl + this.defaultShopImage
+    },
+
+    // 图片加载失败处理
+    handleImageError(dept) {
+      // 如果已经尝试过默认图片，就不重复设置了
+      if (dept.imageUrl === this.imageBaseUrl + this.defaultShopImage) {
+        return
+      }
+      // 设置默认图片
+      dept.imageUrl = this.imageBaseUrl + this.defaultShopImage
+    },
 
     // 加载门店列表
     loadDeptList() {
@@ -122,7 +151,8 @@ export default {
         deptName: dept.deptName,
         address: dept.address,
         phone: dept.phone,
-        carSpaceCount: dept.carSpaceCount || 0
+        carSpaceCount: dept.carSpaceCount || 0,
+        imageUrl: dept.imageUrl  // 新增：传递图片地址
       })
       this.$router.push('/booking/calendar')
     }

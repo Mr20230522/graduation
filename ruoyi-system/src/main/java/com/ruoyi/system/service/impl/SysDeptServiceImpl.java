@@ -353,4 +353,12 @@ public class SysDeptServiceImpl implements ISysDeptService
     {
         return getChildList(list, t).size() > 0;
     }
+
+    /**
+     * 根据用户ID查询部门信息
+     */
+    @Override
+    public SysDept selectDeptByUserId(Long userId) {
+        return deptMapper.selectDeptByUserId(userId);
+    }
 }

@@ -121,4 +121,12 @@ public interface SysDeptMapper
      * 注册专用：精确匹配公司名 + 已审核
      */
     List<SysDept> selectByNameExact(@Param("companyName") String companyName);
+
+    /**
+     * 根据用户ID查询部门信息
+     *
+     * @param userId 用户ID
+     * @return 部门信息
+     */
+    public SysDept selectDeptByUserId(Long userId);
 }

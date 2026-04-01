@@ -22,5 +22,10 @@
             <artifactId>ruoyi-system</artifactId>
             <version>${ruoyi.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>4.38.157.ALL</version>
+        </dependency>
     </dependencies>
 </project>

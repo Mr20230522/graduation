@@ -1,7 +1,7 @@
 <template>
   <div class="setting-management">
     <el-row :gutter="24">
-      <!-- 左侧菜单 - 优化样式 -->
+      <!-- 左侧菜单 -->
       <el-col :span="5">
         <div class="menu-wrapper">
           <div class="menu-header">
@@ -31,7 +31,7 @@
         </div>
       </el-col>
 
-      <!-- 右侧内容 - 优化间距和布局 -->
+      <!-- 右侧内容 -->
       <el-col :span="19">
         <div class="content-wrapper">
           <!-- 基本信息 -->
@@ -43,6 +43,48 @@
               </div>
               <p>设置门店的基本信息，这些信息将展示给用户</p>
             </div>
+
+            <!-- 门店图片上传区域 -->
+            <div class="image-upload-section">
+              <div class="section-title">
+                <i class="el-icon-picture"></i>
+                <span>门店图片</span>
+              </div>
+              <div class="image-container">
+                <div class="image-preview">
+                  <img :src="imagePreviewUrl" :alt="deptForm.deptName" class="shop-image">
+                  <div class="image-overlay" v-if="imageUploadLoading">
+                    <i class="el-icon-loading"></i>
+                    <span>上传中...</span>
+                  </div>
+                </div>
+                <div class="upload-actions">
+                  <el-upload
+                    class="upload-btn"
+                    :show-file-list="false"
+                    :before-upload="beforeImageUpload"
+                    :http-request="handleImageUpload"
+                    accept="image/jpeg,image/png,image/gif">
+                    <el-button type="primary" size="small" :loading="imageUploadLoading">
+                      <i class="el-icon-upload"></i> 上传图片
+                    </el-button>
+                  </el-upload>
+                  <el-button
+                    type="danger"
+                    size="small"
+                    :disabled="!hasImage"
+                    @click="handleImageDelete"
+                    :loading="imageDeleteLoading">
+                    <i class="el-icon-delete"></i> 删除图片
+                  </el-button>
+                  <div class="upload-tip">
+                    <i class="el-icon-info"></i>
+                    <span>支持 jpg、png、gif 格式，建议尺寸 800x600，文件不超过 2MB</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <el-form :model="deptForm" :rules="deptRules" ref="deptForm" label-width="110px" class="setting-form">
               <el-row :gutter="24">
                 <el-col :span="12">
@@ -84,6 +126,53 @@
                   </el-form-item>
                 </el-col>
               </el-row>
+
+              <!-- 支付宝支付配置 -->
+              <div class="alipay-divider">
+                <el-divider content-position="left">
+                  <i class="el-icon-money"></i> 支付宝支付配置
+                </el-divider>
+                <div class="alipay-tip">配置后用户支付时将使用该门店的支付宝账号</div>
+              </div>
+
+              <el-row :gutter="24">
+                <el-col :span="24">
+                  <el-form-item label="应用ID" prop="alipayAppId">
+                    <el-input v-model="deptForm.alipayAppId" placeholder="请输入支付宝应用ID"></el-input>
+                    <div class="form-tip">从支付宝开放平台沙箱获取，例如：9021000162652310</div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="24">
+                  <el-form-item label="商户私钥" prop="alipayPrivateKey">
+                    <el-input type="textarea" v-model="deptForm.alipayPrivateKey" :rows="4" placeholder="请输入商户私钥（PKCS8格式）"></el-input>
+                    <div class="form-tip">使用支付宝密钥生成工具生成的"应用私钥"</div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="24">
+                  <el-form-item label="支付宝公钥" prop="alipayPublicKey">
+                    <el-input type="textarea" v-model="deptForm.alipayPublicKey" :rows="4" placeholder="请输入支付宝公钥"></el-input>
+                    <div class="form-tip">上传应用公钥后系统生成的"支付宝公钥"</div>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
+              <el-row :gutter="24">
+                <el-col :span="12">
+                  <el-form-item label="网关地址" prop="alipayGateway">
+                    <el-select v-model="deptForm.alipayGateway" placeholder="请选择环境" style="width: 100%">
+                      <el-option label="沙箱环境（测试用）" value="https://openapi.alipaydev.com/gateway.do"></el-option>
+                      <el-option label="正式环境（上线用）" value="https://openapi.alipay.com/gateway.do"></el-option>
+                    </el-select>
+                  </el-form-item>
+                </el-col>
+              </el-row>
+
               <div class="form-actions">
                 <el-button type="primary" @click="updateDeptInfo" :loading="saveLoading" size="medium">
                   <i class="el-icon-check"></i> 保存修改
@@ -220,7 +309,6 @@
     </el-row>
   </div>
 </template>
-
 <script>
 import {
   getDeptInfo,
@@ -228,7 +316,9 @@ import {
   getSchedule,
   updateSchedule,
   getCarSpaces,
-  updateCarSpace
+  updateCarSpace,
+  uploadDeptImage,
+  deleteDeptImage
 } from '@/api/booking/booking'
 
 export default {
@@ -247,7 +337,28 @@ export default {
       scheduleLoading: false,
       scheduleSaving: false,
       carSpaceList: [],
-      carSpaceLoading: false
+      carSpaceLoading: false,
+      // 图片相关
+      imageUploadLoading: false,
+      imageDeleteLoading: false,
+      imageBaseUrl: process.env.VUE_APP_BASE_API + '/profile'
+    }
+  },
+  computed: {
+    // 图片预览地址
+    imagePreviewUrl() {
+      if (this.deptForm.imageUrl) {
+        if (this.deptForm.imageUrl.startsWith('http')) {
+          return this.deptForm.imageUrl
+        }
+        return this.imageBaseUrl + this.deptForm.imageUrl
+      }
+      // 没有图片时显示默认图片
+      return this.imageBaseUrl + '/dept/default.jpg'
+    },
+    // 是否有图片
+    hasImage() {
+      return this.deptForm.imageUrl && this.deptForm.imageUrl !== ''
     }
   },
   created() {
@@ -346,6 +457,64 @@ export default {
         this.$message.error('更新失败')
       })
     },
+    // ==================== 图片上传相关方法 ====================
+    // 上传前校验
+    beforeImageUpload(file) {
+      const isImage = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/gif'
+      const isLt2M = file.size / 1024 / 1024 < 2
+
+      if (!isImage) {
+        this.$message.error('只能上传 JPG/PNG/GIF 格式的图片!')
+        return false
+      }
+      if (!isLt2M) {
+        this.$message.error('图片大小不能超过 2MB!')
+        return false
+      }
+      return true
+    },
+    // 上传图片
+    handleImageUpload(params) {
+      this.imageUploadLoading = true
+      const file = params.file
+
+      uploadDeptImage(file).then(res => {
+        if (res.code === 200) {
+          this.$message.success('图片上传成功')
+          // 刷新门店信息，获取最新的图片地址
+          this.loadDeptInfo()
+        } else {
+          this.$message.error(res.msg || '上传失败')
+        }
+        this.imageUploadLoading = false
+      }).catch(() => {
+        this.$message.error('上传失败，请重试')
+        this.imageUploadLoading = false
+      })
+    },
+    // 删除图片
+    handleImageDelete() {
+      this.$confirm('确定删除门店图片吗？删除后用户将看到默认图片', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.imageDeleteLoading = true
+        deleteDeptImage().then(res => {
+          if (res.code === 200) {
+            this.$message.success('图片删除成功')
+            // 刷新门店信息
+            this.loadDeptInfo()
+          } else {
+            this.$message.error(res.msg || '删除失败')
+          }
+          this.imageDeleteLoading = false
+        }).catch(() => {
+          this.$message.error('删除失败，请重试')
+          this.imageDeleteLoading = false
+        })
+      }).catch(() => {})
+    },
     formatWeekday(dateStr) {
       if (!dateStr) return ''
       const date = new Date(dateStr)
@@ -362,6 +531,23 @@ export default {
 </script>
 
 <style scoped lang="scss">
+.alipay-divider {
+  margin: 20px 0 10px 0;
+
+  .alipay-tip {
+    font-size: 12px;
+    color: #909399;
+    margin-bottom: 20px;
+    padding-left: 10px;
+  }
+}
+
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+  line-height: 1.4;
+}
 .setting-management {
   padding: 24px;
   background: #f5f7fa;
@@ -473,6 +659,100 @@ export default {
         font-size: 13px;
         color: #8c8f9c;
         padding-left: 32px;
+      }
+    }
+
+    // 图片上传区域样式（新增）
+    .image-upload-section {
+      padding: 24px 28px;
+      border-bottom: 1px solid #f0f0f0;
+      background: #fefef8;
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+
+        i {
+          font-size: 18px;
+          color: #e6a23c;
+        }
+
+        span {
+          font-size: 14px;
+          font-weight: 500;
+          color: #2c3e50;
+        }
+      }
+
+      .image-container {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+
+        .image-preview {
+          position: relative;
+          width: 200px;
+          height: 150px;
+          border-radius: 12px;
+          overflow: hidden;
+          background: #f5f7fa;
+          border: 1px solid #e4e7ed;
+
+          .shop-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+
+          .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            gap: 8px;
+
+            i {
+              font-size: 28px;
+            }
+
+            span {
+              font-size: 12px;
+            }
+          }
+        }
+
+        .upload-actions {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+
+          .upload-btn {
+            display: inline-block;
+          }
+
+          .upload-tip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #8c8f9c;
+            margin-top: 8px;
+
+            i {
+              color: #909399;
+            }
+          }
+        }
       }
     }
 

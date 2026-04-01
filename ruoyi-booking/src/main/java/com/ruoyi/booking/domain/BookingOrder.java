@@ -24,6 +24,100 @@ public class BookingOrder extends BaseEntity {
     private Date payTime;               // 支付时间
     private Date cancelTime;            // 取消时间
     private String callbackData;        // 回调数据
+    // ==================== 新增字段（用于支付成功后创建预约） ====================
+
+    /**
+     * 车牌号码
+     */
+    private String carNumber;
+
+    /**
+     * 车辆型号
+     */
+    private String carModel;
+
+    /**
+     * 车辆颜色
+     */
+    private String carColor;
+
+    /**
+     * 预约日期
+     */
+    private Date workDate;
+
+    /**
+     * 预约时段（如：14:30）
+     */
+    private String slot;
+
+    /**
+     * 车位编号
+     */
+    private String spaceNo;
+
+    /**
+     * 套餐分钟数（30/60/90）
+     */
+    private Integer comboMinutes;
+
+// ==================== 新增字段的 getter/setter ====================
+
+    public String getCarNumber() {
+        return carNumber;
+    }
+
+    public void setCarNumber(String carNumber) {
+        this.carNumber = carNumber;
+    }
+
+    public String getCarModel() {
+        return carModel;
+    }
+
+    public void setCarModel(String carModel) {
+        this.carModel = carModel;
+    }
+
+    public String getCarColor() {
+        return carColor;
+    }
+
+    public void setCarColor(String carColor) {
+        this.carColor = carColor;
+    }
+
+    public Date getWorkDate() {
+        return workDate;
+    }
+
+    public void setWorkDate(Date workDate) {
+        this.workDate = workDate;
+    }
+
+    public String getSlot() {
+        return slot;
+    }
+
+    public void setSlot(String slot) {
+        this.slot = slot;
+    }
+
+    public String getSpaceNo() {
+        return spaceNo;
+    }
+
+    public void setSpaceNo(String spaceNo) {
+        this.spaceNo = spaceNo;
+    }
+
+    public Integer getComboMinutes() {
+        return comboMinutes;
+    }
+
+    public void setComboMinutes(Integer comboMinutes) {
+        this.comboMinutes = comboMinutes;
+    }
 
     // Getters and Setters
     public Long getId() { return id; }

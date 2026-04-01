@@ -126,8 +126,13 @@ public interface ISysDeptService
      */
     public int deleteDeptById(Long deptId);
 
-
-
+    /**
+     * 根据用户ID查询部门信息（用于获取当前登录用户所属门店）
+     *
+     * @param userId 用户ID
+     * @return 部门信息
+     */
+    public SysDept selectDeptByUserId(Long userId);
 
 
 }
