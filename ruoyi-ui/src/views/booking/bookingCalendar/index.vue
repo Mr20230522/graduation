@@ -262,6 +262,24 @@ export default {
     }
   },
   created() {
+    // 处理支付宝支付返回的情况（支付宝返回的是 hash 模式，需要转换）
+    let query = this.$route.query
+    
+    // 如果 URL 参数为空，尝试从 sessionStorage 获取（支付宝返回时 hash 模式转换）
+    if ((!query || !query.from) && sessionStorage.getItem('alipayReturnParams')) {
+      const params = new URLSearchParams(sessionStorage.getItem('alipayReturnParams'))
+      query = {
+        from: params.get('from'),
+        orderNo: params.get('orderNo')
+      }
+      sessionStorage.removeItem('alipayReturnParams')
+    }
+    
+    if (query && query.from === 'alipay' && query.orderNo) {
+      this.handleAlipayReturn(query.orderNo)
+      return
+    }
+    
     if (!this.currentDept) {
       this.$router.push('/booking/deptSelect')
       return
@@ -273,7 +291,102 @@ export default {
     this.clearTimers()
   },
   methods: {
-    ...mapActions('booking', ['clearCurrentDept']),
+    ...mapActions('booking', ['clearCurrentDept', 'setCurrentDept']),
+
+    // 处理支付宝返回
+    handleAlipayReturn(orderNo) {
+      this.$message.info('正在查询支付结果...')
+      this.currentOrder = { orderNo: orderNo } // 设置订单号用于后续创建预约
+      // 轮询查询支付状态
+      this.startPayPollingForReturn(orderNo)
+    },
+
+    // 支付宝返回后的轮询（支付成功后创建预约）
+    startPayPollingForReturn(orderNo) {
+      let count = 0
+      const timer = setInterval(async () => {
+        try {
+          const res = await getPayStatus(orderNo)
+          if (res.data.status === 2) {
+            clearInterval(timer)
+            // 支付成功，创建预约
+            this.$message.success('支付成功，正在创建预约...')
+            await this.createBookingByOrderNo(orderNo)
+          } else if (res.data.status === 3) {
+            clearInterval(timer)
+            this.$message.error('订单已取消')
+            this.$router.push('/booking/deptSelect')
+          }
+          count++
+          if (count >= 60) {
+            clearInterval(timer)
+            this.$message.error('支付超时，请到我的预约查看订单状态')
+            this.$router.push('/booking/myBooking')
+          }
+        } catch (e) {
+          console.error('查询失败', e)
+        }
+      }, 3000)
+    },
+
+    // 通过订单号创建预约（支付宝返回后调用）
+    async createBookingByOrderNo(orderNo) {
+      try {
+        // 先获取订单信息
+        const orderRes = await getPayStatus(orderNo)
+        const orderData = orderRes.data
+        
+        if (!orderData || orderData.status !== 2) {
+          this.$message.error('订单状态异常')
+          return
+        }
+        
+        // 从Vuex获取之前选择的门店信息
+        const dept = this.currentDept
+        if (!dept) {
+          this.$message.error('门店信息已失效，请重新预约')
+          this.$router.push('/booking/deptSelect')
+          return
+        }
+        
+        // 从localStorage恢复表单数据
+        const savedForm = localStorage.getItem('bookingForm')
+        if (!savedForm) {
+          this.$message.error('预约信息已失效，请重新预约')
+          this.$router.push('/booking/deptSelect')
+          return
+        }
+        
+        const bookForm = JSON.parse(savedForm)
+        const startTime = bookForm.workDate + ' ' + bookForm.slot + ':00'
+
+        const bookingData = {
+          deptId: dept.deptId,
+          spaceNo: bookForm.spaceNo,
+          workDate: bookForm.workDate,
+          startTime: startTime,
+          comboMinutes: bookForm.comboMinutes,
+          comboName: getComboName(bookForm.comboMinutes),
+          carNumber: bookForm.carNumber.trim(),
+          carModel: bookForm.carModel.trim(),
+          carColor: bookForm.carColor.trim()
+        }
+
+        const res = await createBooking(bookingData, orderNo)
+        
+        // 清理保存的数据
+        localStorage.removeItem('bookingForm')
+        
+        this.bookingCode = res.data.code
+        this.$message.success('预约创建成功！')
+        this.$router.push('/booking/myBooking')
+        
+      } catch (error) {
+        console.error('创建预约失败', error)
+        this.$message.error('预约创建失败，请到我的预约查看')
+        this.$router.push('/booking/myBooking')
+      }
+    },
 
     goToDeptSelect() {
       this.$router.push('/booking/deptSelect')
@@ -450,6 +563,9 @@ export default {
 
         this.currentOrder = res.data
 
+        // 保存表单信息到 localStorage，用于支付宝返回后恢复
+        localStorage.setItem('bookingForm', JSON.stringify(this.bookForm))
+
         if (this.currentOrder.expireTime) {
           this.startExpireCountdown(this.currentOrder.expireTime)
         }
@@ -484,6 +600,13 @@ export default {
           document.body.appendChild(div)
           const form = div.getElementsByTagName('form')[0]
           if (form) {
+            // 移除支付宝表单中的 return_url，防止跳转
+            const inputs = form.getElementsByTagName('input')
+            for (let i = inputs.length - 1; i >= 0; i--) {
+              if (inputs[i].name === 'return_url' || inputs[i].name === 'returnUrl') {
+                inputs[i].parentNode.removeChild(inputs[i])
+              }
+            }
             form.submit()
           }
           // 跳转后，前端轮询查询支付状态

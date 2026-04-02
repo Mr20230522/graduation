@@ -56,6 +56,12 @@ export const constantRoutes = [
     component: () => import('@/views/register'),
     hidden: true
   },
+  // 支付宝支付返回页面（不带 Layout）
+  {
+    path: '/booking/paymentReturn',
+    component: () => import('@/views/booking/paymentReturn.vue'),
+    hidden: true
+  },
   {
     path: '/404',
     component: () => import('@/views/error/404'),

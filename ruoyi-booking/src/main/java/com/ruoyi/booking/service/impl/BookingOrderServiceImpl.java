@@ -136,7 +136,8 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
 
             AlipayTradePagePayRequest request = new AlipayTradePagePayRequest();
             request.setNotifyUrl("http://localhost:8080/booking/order/callback/alipay");
-            request.setReturnUrl("http://localhost:8080/booking/result");
+            // 尝试使用局域网 IP
+            request.setReturnUrl("http://10.252.50.143:1024/");
 
             request.setBizContent("{" +
                     "\"out_trade_no\":\"" + order.getOrderNo() + "\"," +
@@ -346,11 +347,21 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
     private Map<String, String> parseCallbackData(String callbackData) {
         Map<String, String> result = new HashMap<>();
         try {
-            String[] pairs = callbackData.split("&");
-            for (String pair : pairs) {
-                String[] kv = pair.split("=");
-                if (kv.length == 2) {
-                    result.put(kv[0], kv[1]);
+            // 尝试解析 key=value&key=value 格式
+            if (callbackData.contains("=") && callbackData.contains("&")) {
+                String[] pairs = callbackData.split("&");
+                for (String pair : pairs) {
+                    String[] kv = pair.split("=");
+                    if (kv.length >= 2) {
+                        result.put(kv[0], kv[1]);
+                    }
+                }
+            }
+            // 如果上面解析不到，尝试解析 JSON 格式
+            if (result.isEmpty() && callbackData.startsWith("{")) {
+                com.alibaba.fastjson.JSONObject json = com.alibaba.fastjson.JSON.parseObject(callbackData);
+                for (String key : json.keySet()) {
+                    result.put(key, json.getString(key));
                 }
             }
         } catch (Exception e) {

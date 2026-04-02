@@ -33,6 +33,7 @@ module.exports = {
     host: '0.0.0.0',
     port: port,
     open: true,
+    historyApiFallback: true, // 允许所有路由都返回 index.html
     proxy: {
       // detail: https://cli.vuejs.org/config/#devserver-proxy
       [process.env.VUE_APP_BASE_API]: {
