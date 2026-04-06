@@ -113,7 +113,7 @@ export default {
         type: 'warning'
       }).then(() => {
         this.$store.dispatch('LogOut').then(() => {
-          location.href = '/index.vue'
+          this.$router.push('/login')
         })
       }).catch(() => {})
     }
