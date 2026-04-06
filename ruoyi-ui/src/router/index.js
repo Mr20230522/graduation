@@ -6,29 +6,7 @@ Vue.use(Router)
 /* Layout */
 import Layout from '@/layout'
 
-/**
- * Note: 路由配置项
- *
- * hidden: true                     // 当设置 true 的时候该路由不会再侧边栏出现 如401，login等页面，或者如一些编辑页面/edit/1
- * alwaysShow: true                 // 当你一个路由下面的 children 声明的路由大于1个时，自动会变成嵌套的模式--如组件页面
- *                                  // 只有一个时，会将那个子路由当做根路由显示在侧边栏--如引导页面
- *                                  // 若你想不管路由下面的 children 声明的个数都显示你的根路由
- *                                  // 你可以设置 alwaysShow: true，这样它就会忽略之前定义的规则，一直显示根路由
- * redirect: noRedirect             // 当设置 noRedirect 的时候该路由在面包屑导航中不可被点击
- * name:'router-name'               // 设定路由的名字，一定要填写不然使用<keep-alive>时会出现各种问题
- * query: '{"id": 1, "name": "ry"}' // 访问路由的默认传递参数
- * roles: ['admin', 'common']       // 访问路由的角色权限
- * permissions: ['a:a:a', 'b:b:b']  // 访问路由的菜单权限
- * meta : {
- noCache: true                   // 如果设置为true，则不会被 <keep-alive> 缓存(默认 false)
- title: 'title'                  // 设置该路由在侧边栏和面包屑中展示的名字
- icon: 'svg-name'                // 设置该路由的图标，对应路径src/assets/icons/svg
- breadcrumb: false               // 如果设置为false，则不会在breadcrumb面包屑中显示
- activeMenu: '/system/user'      // 当路由设置了该属性，则会高亮相对应的侧边栏。
- }
- */
-
-// 公共路由
+// 公共路由（所有角色都能看到：登录页、首页、404等）
 export const constantRoutes = [
   {
     path: '/redirect',
@@ -56,7 +34,6 @@ export const constantRoutes = [
     component: () => import('@/views/register'),
     hidden: true
   },
-  // 支付宝支付返回页面（不带 Layout）
   {
     path: '/booking/paymentReturn',
     component: () => import('@/views/booking/paymentReturn.vue'),
@@ -99,10 +76,15 @@ export const constantRoutes = [
       }
     ]
   },
+  // 工具模块（admin 可见，通过 roles 控制）
   {
     path: '/tool',
     component: Layout,
-    hidden: false,
+    meta: {
+      title: '工具',
+      icon: 'tool',
+      roles: ['admin']  // 只有 admin 能看到
+    },
     children: [
       {
         path: 'build',
@@ -127,15 +109,21 @@ export const constantRoutes = [
         component: () => import('@/views/tool/amap'),
         name: 'Amap',
         meta: { title: '高德地图', icon: 'map' }
-      },
-    ],
-  },
+      }
+    ]
+  }
+]
+
+// 动态路由（根据角色权限动态加载）
+export const dynamicRoutes = [
+  // ==================== 车辆预约（common 角色可见） ====================
   {
     path: '/booking',
     component: Layout,
     meta: {
       title: '车辆预约',
-      icon: 'dashboard'  // 这里写图标名称
+      icon: 'dashboard',
+      roles: ['common']  // ✅ 只有 common 角色能看到
     },
     children: [
       {
@@ -144,7 +132,7 @@ export const constantRoutes = [
         name: 'DeptSelect',
         meta: {
           title: '门店选择',
-          icon: 'dashboard'  // 门店图标
+          icon: 'dashboard'
         }
       },
       {
@@ -153,7 +141,7 @@ export const constantRoutes = [
         name: 'BookingCalendar',
         meta: {
           title: '预约日历',
-          icon: 'dashboard'  // 日历图标
+          icon: 'dashboard'
         }
       },
       {
@@ -162,7 +150,7 @@ export const constantRoutes = [
         name: 'MyBooking',
         meta: {
           title: '我的预约',
-          icon: 'dashboard'  // 订单图标
+          icon: 'dashboard'
         }
       },
       {
@@ -171,7 +159,7 @@ export const constantRoutes = [
         name: 'BookingHistory',
         meta: {
           title: '历史记录',
-          icon: 'dashboard'  // 历史图标
+          icon: 'dashboard'
         }
       },
       {
@@ -181,7 +169,7 @@ export const constantRoutes = [
         meta: {
           title: '门店详情',
           icon: 'shop',
-          hidden: true  // 不在菜单显示
+          hidden: true
         }
       },
       {
@@ -190,19 +178,20 @@ export const constantRoutes = [
         name: 'myConsumption',
         meta: {
           title: '消费一览',
-          icon: 'shop',
-          hidden: false  // 不在菜单显示
+          icon: 'shop'
         }
       }
     ]
   },
-  // ==================== 老板管理（目录） ====================
+
+  // ==================== 老板管理（boss 角色可见） ====================
   {
     path: '/boss',
     component: Layout,
     meta: {
       title: '老板管理',
-      icon: 'el-icon-s-custom'
+      icon: 'el-icon-s-custom',
+      roles: ['boss']  // ✅ 只有 boss 角色能看到
     },
     children: [
       {
@@ -233,11 +222,9 @@ export const constantRoutes = [
         }
       }
     ]
-  }
-]
+  },
 
-// 动态路由，基于用户权限动态去加载
-export const dynamicRoutes = [
+  // ==================== 系统管理相关（admin 可见） ====================
   {
     path: '/system/user-auth',
     component: Layout,
@@ -313,17 +300,17 @@ export const dynamicRoutes = [
 // 防止连续点击多次路由报错
 let routerPush = Router.prototype.push
 let routerReplace = Router.prototype.replace
-// push
+
 Router.prototype.push = function push(location) {
   return routerPush.call(this, location).catch(err => err)
 }
-// replace
+
 Router.prototype.replace = function push(location) {
   return routerReplace.call(this, location).catch(err => err)
 }
 
 export default new Router({
-  mode: 'history', // 去掉url中的#
+  mode: 'history',
   scrollBehavior: () => ({ y: 0 }),
   routes: constantRoutes
 })
