@@ -22,6 +22,10 @@ public interface BookingOrderMapper {
 
     int deleteBookingOrderByIds(Long[] ids);
 
+    int updateBookingNoByOrderNo(@Param("orderNo") String orderNo,
+                                 @Param("bookingNo") String bookingNo,
+                                 @Param("bookingId") Long bookingId);
+
     int updateStatusByOrderNo(@Param("orderNo") String orderNo,
                               @Param("status") Integer status,
                               @Param("payTime") Date payTime);

@@ -1,9 +1,11 @@
 package com.ruoyi.booking.service.impl;
 
+import com.ruoyi.booking.domain.BookingOrder;
 import com.ruoyi.booking.domain.CarBooking;
 import com.ruoyi.booking.domain.DeptCarSpace;
 import com.ruoyi.booking.domain.DeptSchedule;
 import com.ruoyi.booking.mapper.BookingMapper;
+import com.ruoyi.booking.mapper.BookingOrderMapper;
 import com.ruoyi.booking.service.IBookingService;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
@@ -19,6 +21,9 @@ public class BookingServiceImpl implements IBookingService {
 
     @Autowired
     private BookingMapper bookingMapper;
+    
+    @Autowired
+    private BookingOrderMapper bookingOrderMapper;
 
     // ==================== 车位管理 ====================
     @Override
@@ -275,8 +280,8 @@ public class BookingServiceImpl implements IBookingService {
 
         // 如果有订单号，更新订单关联的预约ID
         if (StringUtils.isNotEmpty(orderNo)) {
-            // 这里需要调用订单服务更新订单的预约ID
-            // bookingOrderService.updateBookingNo(orderNo, bookingNo, booking.getId());
+            // 更新订单关联的预约ID
+            bookingOrderMapper.updateBookingNoByOrderNo(orderNo, bookingNo, booking.getId());
         }
 
         result.put("success", true);
@@ -304,6 +309,9 @@ public class BookingServiceImpl implements IBookingService {
     // ==================== 我的预约 ====================
     @Override
     public List<CarBooking> selectMyBookingList(Long userId, List<Integer> statusList, boolean onlyNotExpired) {
+        // 自动同步订单到预约
+        syncOrdersToBookings(userId);
+        
         Date now = new Date();
         return bookingMapper.selectMyBookingList(userId, statusList, onlyNotExpired, now);
     }
@@ -317,5 +325,106 @@ public class BookingServiceImpl implements IBookingService {
         result.put("list", list);
         result.put("total", total);
         return result;
+    }
+    
+    /**
+     * 同步订单到预约（自动为未创建预约的订单创建预约记录）
+     */
+    @Override
+    public void syncOrdersToBookings(Long userId) {
+        try {
+            // 查询用户所有未关联预约的订单
+            BookingOrder query = new BookingOrder();
+            query.setUserId(userId);
+            List<BookingOrder> orders = bookingOrderMapper.selectBookingOrderList(query);
+            
+            for (BookingOrder order : orders) {
+                // 只处理未取消的订单，且没有关联预约的
+                if (order.getStatus() != 3 && order.getBookingNo() == null) {
+                    try {
+                        // 检查是否冲突
+                        Date startTime = parseStartTime(order.getWorkDate(), order.getSlot());
+                        Date endTime = calculateEndTime(startTime, order.getComboMinutes());
+                        
+                        int conflict = bookingMapper.countConflictBooking(
+                                order.getDeptId(), order.getSpaceNo(), order.getWorkDate(),
+                                startTime, endTime);
+                        
+                        if (conflict > 0) {
+                            System.out.println("⚠️ 订单 " + order.getOrderNo() + " 存在冲突，跳过");
+                            continue;
+                        }
+                        
+                        // 创建预约
+                        CarBooking booking = new CarBooking();
+                        booking.setUserId(order.getUserId());
+                        booking.setDeptId(order.getDeptId());
+                        booking.setSpaceNo(order.getSpaceNo());
+                        booking.setWorkDate(order.getWorkDate());
+                        booking.setStartTime(startTime);
+                        booking.setEndTime(endTime);
+                        booking.setCarNumber(order.getCarNumber());
+                        booking.setCarModel(order.getCarModel());
+                        booking.setCarColor(order.getCarColor());
+                        booking.setComboMinutes(order.getComboMinutes());
+                        booking.setComboName(getComboName(order.getComboMinutes()));
+                        booking.setStatus(0);
+                        booking.setBookingNo(generateBookingNo());
+                        booking.setCode(generateCode());
+                        booking.setCreateBy(String.valueOf(order.getUserId()));
+                        
+                        bookingMapper.insertBooking(booking);
+                        
+                        // 更新订单关联
+                        bookingOrderMapper.updateBookingNoByOrderNo(order.getOrderNo(), booking.getBookingNo(), booking.getId());
+                        
+                        System.out.println("✅ [同步] 订单 " + order.getOrderNo() + " -> 预约 " + booking.getBookingNo());
+                        
+                    } catch (Exception e) {
+                        System.out.println("❌ [同步] 订单 " + order.getOrderNo() + " 创建预约失败: " + e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("❌ [同步] 查询订单失败: " + e.getMessage());
+        }
+    }
+    
+    // ==================== 私有方法 ====================
+    
+    private String generateBookingNo() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+        return "BK" + sdf.format(new Date()) + String.format("%04d", new Random().nextInt(10000));
+    }
+    
+    private String generateCode() {
+        Random random = new Random();
+        return String.format("%06d", random.nextInt(1000000));
+    }
+    
+    private Date parseStartTime(Date workDate, String slot) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(workDate);
+            return sdf.parse(dateStr + " " + slot + ":00");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new Date();
+        }
+    }
+    
+    private Date calculateEndTime(Date startTime, int minutes) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(startTime);
+        cal.add(Calendar.MINUTE, minutes);
+        return cal.getTime();
+    }
+    
+    private String getComboName(Integer minutes) {
+        if (minutes == null) return "标准洗车";
+        if (minutes == 30) return "标准洗车";
+        if (minutes == 60) return "精洗+打蜡";
+        if (minutes == 90) return "全套护理";
+        return "洗车服务";
     }
 }

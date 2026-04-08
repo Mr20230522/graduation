@@ -246,6 +246,7 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
             return result;
         }
 
+        // 如果订单状态是发起支付(1)，尝试查询支付宝状态
         if (order.getStatus() == 1) {
             try {
                 SysDept dept = deptService.selectDeptById(order.getDeptId());
@@ -266,8 +267,13 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
                     AlipayTradeQueryResponse response = alipayClient.execute(request);
 
                     if (response.isSuccess() && "TRADE_SUCCESS".equals(response.getTradeStatus())) {
+                        // 支付成功，更新订单状态
                         orderMapper.updateStatusByOrderNo(orderNo, 2, new Date());
                         order.setStatus(2);
+                        order.setPayTime(new Date());
+                        
+                        // 创建预约记录（如果还没有创建）
+                        createBookingFromOrder(order);
                     }
                 }
             } catch (Exception e) {
@@ -280,6 +286,52 @@ public class BookingOrderServiceImpl implements IBookingOrderService {
         result.put("amount", order.getAmount());
 
         return result;
+    }
+    
+    /**
+     * 根据订单创建预约记录
+     */
+    private void createBookingFromOrder(BookingOrder order) {
+        // 如果已经有预约号，跳过
+        if (order.getBookingNo() != null) {
+            System.out.println("预约已存在，跳过创建: " + order.getBookingNo());
+            return;
+        }
+        
+        try {
+            CarBooking booking = new CarBooking();
+            booking.setUserId(order.getUserId());
+            booking.setDeptId(order.getDeptId());
+            booking.setSpaceNo(order.getSpaceNo());
+            booking.setWorkDate(order.getWorkDate());
+
+            Date startTime = parseStartTime(order.getWorkDate(), order.getSlot());
+            booking.setStartTime(startTime);
+            booking.setEndTime(calculateEndTime(startTime, order.getComboMinutes()));
+
+            booking.setCarNumber(order.getCarNumber());
+            booking.setCarModel(order.getCarModel());
+            booking.setCarColor(order.getCarColor());
+            booking.setComboMinutes(order.getComboMinutes());
+            booking.setComboName(getComboName(order.getComboMinutes()));
+            booking.setStatus(0);
+
+            booking.setBookingNo(generateBookingNo());
+            booking.setCode(generateCode());
+            booking.setCreateBy(String.valueOf(order.getUserId()));
+
+            bookingMapper.insertBooking(booking);
+
+            order.setBookingId(booking.getId());
+            order.setBookingNo(booking.getBookingNo());
+            orderMapper.updateBookingOrder(order);
+
+            System.out.println("✅ [getPayStatus] 预约创建成功！预约单号: " + booking.getBookingNo());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("❌ [getPayStatus] 创建预约失败: " + e.getMessage());
+        }
     }
 
     @Override

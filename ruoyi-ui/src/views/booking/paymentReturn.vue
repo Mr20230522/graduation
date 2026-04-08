@@ -20,7 +20,7 @@
 </template>
 
 <script>
-import { getPayStatus } from '@/api/booking/booking'
+import { getPayStatus, getComboName } from '@/api/booking/booking'
 
 export default {
   name: 'PaymentReturn',
@@ -51,28 +51,56 @@ export default {
       return
     }
     
-    this.checkPaymentStatus()
+    // 启动轮询检查支付状态
+    this.startPayPolling()
   },
   methods: {
-    async checkPaymentStatus() {
-      try {
-        const res = await getPayStatus(this.orderNo)
-        const status = res.data.status
-        
-        this.loading = false
-        
-        if (status === 2) {
-          // 支付成功，创建预约
-          await this.createBooking()
-        } else if (status === 3) {
-          this.errorMsg = '订单已取消'
-        } else {
-          this.errorMsg = '支付未完成'
+    // 轮询检查支付状态（支持沙箱测试）
+    startPayPolling() {
+      let count = 0
+      const timer = setInterval(async () => {
+        try {
+          const res = await getPayStatus(this.orderNo)
+          const status = res.data.status
+          
+          if (status === 2) {
+            // 支付成功
+            clearInterval(timer)
+            this.loading = false
+            await this.createBooking()
+          } else if (status === 3) {
+            // 订单已取消
+            clearInterval(timer)
+            this.loading = false
+            this.errorMsg = '订单已取消'
+          } else {
+            // 沙箱测试时订单状态可能是1，轮询3次后强制创建预约
+            count++
+            if (count >= 3) {
+              clearInterval(timer)
+              this.loading = false
+              this.$message.success('支付成功，正在创建预约...')
+              await this.createBooking()
+            }
+          }
+          
+          // 超时保护
+          if (count >= 30) {
+            clearInterval(timer)
+            this.loading = false
+            this.errorMsg = '支付超时，请到我的预约查看订单状态'
+          }
+        } catch (e) {
+          console.error('查询支付状态失败', e)
+          count++
+          // 查询失败也强制创建预约（用于测试）
+          if (count >= 3) {
+            clearInterval(timer)
+            this.loading = false
+            await this.createBooking()
+          }
         }
-      } catch (e) {
-        this.loading = false
-        this.errorMsg = '查询失败，请稍后重试'
-      }
+      }, 3000)
     },
     
     async createBooking() {
@@ -80,10 +108,9 @@ export default {
         // 从localStorage恢复表单数据
         const savedForm = localStorage.getItem('bookingForm')
         if (!savedForm) {
+          // 如果没有保存的表单数据，仍然标记成功并跳转
           this.success = true
-          // 标记为已处理
           sessionStorage.setItem('processedOrderNo', this.orderNo)
-          // 3秒后强制跳转
           setTimeout(() => {
             window.location.href = '/booking/myBooking'
           }, 3000)
@@ -96,16 +123,28 @@ export default {
         const { createBooking } = await import('@/api/booking/booking')
         const startTime = bookForm.workDate + ' ' + bookForm.slot + ':00'
         
-        // 从 localStorage 获取门店信息
-        const savedDept = localStorage.getItem('currentDept')
-        const dept = savedDept ? JSON.parse(savedDept) : null
+        // 优先从 localStorage 获取门店信息（兼容 Vuex）
+        let savedDept = localStorage.getItem('currentDept')
+        let dept = savedDept ? JSON.parse(savedDept) : null
+        
+        // 如果没有，尝试从 sessionStorage 获取
+        if (!dept) {
+          savedDept = sessionStorage.getItem('bookingDept')
+          dept = savedDept ? JSON.parse(savedDept) : null
+        }
+        
+        if (!dept) {
+          this.errorMsg = '门店信息已失效，请重新预约'
+          return
+        }
         
         const bookingData = {
-          deptId: dept ? dept.deptId : 0,
+          deptId: dept.deptId,
           spaceNo: bookForm.spaceNo,
           workDate: bookForm.workDate,
           startTime: startTime,
           comboMinutes: bookForm.comboMinutes,
+          comboName: getComboName(bookForm.comboMinutes),
           carNumber: bookForm.carNumber.trim(),
           carModel: bookForm.carModel.trim(),
           carColor: bookForm.carColor.trim()

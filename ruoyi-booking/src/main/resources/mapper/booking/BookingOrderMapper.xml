@@ -24,12 +24,20 @@
         <result property="callbackData" column="callback_data"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="carNumber" column="car_number"/>
+        <result property="carModel" column="car_model"/>
+        <result property="carColor" column="car_color"/>
+        <result property="workDate" column="work_date"/>
+        <result property="slot" column="slot"/>
+        <result property="spaceNo" column="space_no"/>
+        <result property="comboMinutes" column="combo_minutes"/>
     </resultMap>
 
     <sql id="selectBookingOrderVo">
         select id, order_no, booking_id, booking_no, user_id, dept_id, amount, paid_amount,
                subject, body, status, pay_method, transaction_id, expire_time, pay_time,
-               cancel_time, callback_data, create_time, update_time
+               cancel_time, callback_data, create_time, update_time,
+               car_number, car_model, car_color, work_date, slot, space_no, combo_minutes
         from payment_order
     </sql>
 
@@ -75,12 +83,14 @@
             order_no, booking_id, booking_no, user_id, dept_id,
             amount, paid_amount, subject, body, status,
             pay_method, transaction_id, expire_time, pay_time,
-            cancel_time, callback_data, create_time, update_time
+            cancel_time, callback_data, create_time, update_time,
+            car_number, car_model, car_color, work_date, slot, space_no, combo_minutes
         ) values (
                      #{orderNo}, #{bookingId}, #{bookingNo}, #{userId}, #{deptId},
                      #{amount}, #{paidAmount}, #{subject}, #{body}, #{status},
                      #{payMethod}, #{transactionId}, #{expireTime}, #{payTime},
-                     #{cancelTime}, #{callbackData}, sysdate(), sysdate()
+                     #{cancelTime}, #{callbackData}, sysdate(), sysdate(),
+                     #{carNumber}, #{carModel}, #{carColor}, #{workDate}, #{slot}, #{spaceNo}, #{comboMinutes}
                  )
     </insert>
 
@@ -101,6 +111,13 @@
         where order_no = #{orderNo}
     </update>
 
+    <update id="updateBookingNoByOrderNo">
+        update payment_order
+        set booking_no = #{bookingNo},
+            booking_id = #{bookingId},
+            update_time = sysdate()
+        where order_no = #{orderNo}
+    </update>
     <update id="updateStatusByOrderNo">
         update payment_order
         set status = #{status},

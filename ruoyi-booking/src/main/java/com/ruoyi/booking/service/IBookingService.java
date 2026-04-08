@@ -34,5 +34,10 @@ public interface IBookingService {
     /* ========== 我的预约 ========== */
     List<CarBooking> selectMyBookingList(Long userId, List<Integer> statusList, boolean onlyNotExpired);
     Map<String, Object> selectMyHistoryList(Long userId, int pageNum, int pageSize);
+    
+    /**
+     * 同步订单到预约（自动为未创建预约的订单创建预约记录）
+     */
+    void syncOrdersToBookings(Long userId);
 
 }
